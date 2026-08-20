@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Field Manager</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="icon" href="./icon-192.png" type="image/png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Field Manager" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta
+      name="theme-color"
+      content="#f5f6f8"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#16181c"
+      media="(prefers-color-scheme: dark)"
+    />
     <script>
       /* Apply saved theme before first paint to avoid a flash. */
       (function () {
@@ -140,6 +159,30 @@
         letter-spacing: 0;
         font-weight: 500;
       }
+      /* Section heading with the area switcher parked on the right. */
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 0 0 12px 2px;
+      }
+      .section-head .section-title {
+        margin: 0;
+      }
+      .area-switch {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      .area-switch select {
+        padding: 5px 9px;
+        font-size: 13px;
+        font-weight: 500;
+        max-width: 200px;
+      }
       /* Add / toolbar */
       .add-row {
         display: flex;
@@ -222,6 +265,8 @@
       .move-col {
         flex: 1 1 0;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
       }
       /* Sits between the two columns, pointing from source to destination. */
       .move-cols .arrow {
@@ -232,6 +277,7 @@
       }
       .picker {
         margin-top: 4px;
+        flex: 1 1 auto;
         max-height: 216px;
         overflow-y: auto;
         background: var(--bg);
@@ -284,6 +330,81 @@
       .picker-option[aria-pressed="true"] .staff {
         color: rgba(255, 255, 255, 0.8);
       }
+      /* Out-of-area locations live behind a collapsed header, so your own
+         list stays the thing you actually read. */
+      .picker-group {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 11px;
+        background: transparent;
+        border: 0;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        border-radius: 0;
+        color: var(--muted);
+        font: inherit;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        text-align: left;
+      }
+      .picker-group:hover {
+        color: var(--text);
+      }
+      .picker-group:first-child {
+        border-top: 0;
+      }
+      .picker-group .gx {
+        font-size: 9px;
+        flex: none;
+      }
+      .picker-group .gn {
+        text-transform: none;
+        letter-spacing: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .picker-group .gc {
+        margin-left: auto;
+        font-weight: 500;
+        flex: none;
+      }
+      .picker-option.nested {
+        padding-left: 22px;
+      }
+      .picker-add {
+        width: 100%;
+        display: block;
+        margin-top: 6px;
+        padding: 7px 10px;
+        background: transparent;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        color: var(--accent);
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 500;
+        text-align: left;
+      }
+      .picker-add:hover {
+        border-color: var(--accent);
+      }
+      .picker-none {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 10px 11px;
+      }
+      .area-tag {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .picker-option[aria-pressed="true"] .area-tag {
+        color: rgba(255, 255, 255, 0.8);
+      }
       .picker-label {
         display: block;
         font-size: 10px;
@@ -323,6 +444,13 @@
         color: #fff;
         font-weight: 550;
         padding: 9px 16px;
+      }
+      .btn-confirm:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .btn-confirm:disabled:hover {
+        filter: none;
       }
       .btn-confirm:hover {
         opacity: 0.9;
@@ -380,7 +508,9 @@
       .loc-title-main {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 10px;
+        row-gap: 4px;
         max-width: 100%;
         min-width: 0;
       }
@@ -507,7 +637,11 @@
         padding-top: 10px;
       }
       .col-times {
-        width: 200px;
+        /* Wide enough for two time inputs, the dash, and the "now" badge that
+           marks the running shift. The badge keeps its space on every row even
+           when hidden, so the time inputs align down the panel. The shifts
+           header shares this class, so the columns stay aligned. */
+        width: 248px;
         flex: none;
         display: flex;
         align-items: center;
@@ -1083,6 +1217,251 @@
           padding: 14px;
         }
       }
+      /* ---------- Toolbar: view, search, filter, sort, copy ---------- */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .toolbar input[type="search"] {
+        font: inherit;
+        color: var(--text);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 7px 11px;
+        outline: none;
+        flex: 1 1 150px;
+        min-width: 0;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .toolbar input[type="search"]:focus {
+        border-color: var(--accent);
+      }
+      .toolbar select {
+        padding: 6px 9px;
+        font-size: 13px;
+        font-weight: 500;
+        flex: none;
+      }
+      .btn-copy {
+        background: var(--card);
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 550;
+        padding: 7px 13px;
+        border: 1px solid var(--border);
+        white-space: nowrap;
+        flex: none;
+      }
+      .btn-copy:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      /* Segmented control. The pressed segment carries the accent fill, so the
+         current view/filter reads at a glance on a bright field. */
+      .seg {
+        display: flex;
+        flex: none;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .seg-btn {
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 550;
+        padding: 7px 12px;
+        border: 0;
+        border-radius: 0;
+        white-space: nowrap;
+      }
+      .seg-btn + .seg-btn {
+        border-left: 1px solid var(--border);
+      }
+      .seg-btn:hover {
+        color: var(--text);
+      }
+      .seg-btn[aria-pressed="true"],
+      .seg-btn[aria-pressed="true"]:hover {
+        background: var(--accent);
+        color: #fff;
+      }
+      .seg-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+      /* "Showing 3 of 12" — only present while a filter is narrowing things. */
+      .list-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0 2px 10px;
+      }
+      .list-meta button {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        color: var(--accent);
+        font: inherit;
+        font-weight: 550;
+      }
+      .list-meta button:hover {
+        text-decoration: underline;
+      }
+      /* ---------- Now view ---------- */
+      /* Upcoming changeover. Muted until it is close enough to act on. */
+      .next-chip {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        flex: none;
+        white-space: nowrap;
+        color: var(--muted);
+        background: color-mix(in srgb, var(--muted) 12%, transparent);
+      }
+      .next-chip.soon {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+      }
+      .shift-count.closed {
+        color: var(--muted);
+        font-style: italic;
+      }
+      /* The shift that is actually running, marked inside the panel so the
+         numbers on the card head can be traced to a row. */
+      .shift.is-now {
+        border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+        box-shadow: inset 3px 0 0 var(--accent);
+      }
+      .now-badge {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        border-radius: 999px;
+        color: #fff;
+        background: var(--accent);
+        flex: none;
+        white-space: nowrap;
+      }
+      .btn-dup {
+        background: transparent;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1;
+        padding: 6px 8px;
+        border-radius: 6px;
+        flex: none;
+      }
+      .btn-dup:hover,
+      .btn-edit:hover {
+        color: var(--accent);
+      }
+      /* Timestamp on a transfer row, so the log reads as a sequence of moves. */
+      .tr-time {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        flex: none;
+      }
+      /* Over-transfer guard in the move dialog. */
+      .move-summary.warn {
+        color: var(--under);
+        font-weight: 600;
+      }
+      /* ---------- Toasts ---------- */
+      .toasts {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 60;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 0 14px 18px;
+        pointer-events: none;
+      }
+      .toast {
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        max-width: 420px;
+        width: 100%;
+        background: var(--text);
+        color: var(--bg);
+        border-radius: 10px;
+        padding: 11px 14px;
+        font-size: 13.5px;
+        font-weight: 500;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+        animation: toast-in 0.16s ease-out;
+      }
+      .toast.out {
+        opacity: 0;
+        transform: translateY(6px);
+        transition:
+          opacity 0.18s,
+          transform 0.18s;
+      }
+      @keyframes toast-in {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+      .toast-msg {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .toast-btn {
+        flex: none;
+        background: transparent;
+        border: 0;
+        padding: 2px 4px;
+        color: var(--bg);
+        font: inherit;
+        font-weight: 700;
+        text-decoration: underline;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .toast {
+          animation: none;
+        }
+      }
+      @media (max-width: 760px) {
+        /* Search takes its own line so the segmented controls stay unsplit. */
+        .toolbar input[type="search"] {
+          flex: 1 1 100%;
+          order: -1;
+        }
+        /* Wrapped rows push apart, so the filter and Copy summary end up flush
+           with the right edge and their borders line up down the column. */
+        .toolbar {
+          justify-content: space-between;
+        }
+        /* Holds the right edge on a row Copy summary has to itself. */
+        .btn-copy {
+          margin-left: auto;
+        }
+        .toasts {
+          padding: 0 10px 12px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -1102,7 +1481,13 @@
       </header>
 
       <section>
-        <p class="section-title">Locations</p>
+        <div class="section-head">
+          <p class="section-title">Locations</p>
+          <div class="area-switch">
+            <span class="picker-label" id="area-label">Area</span>
+            <select id="area-select" aria-labelledby="area-label"></select>
+          </div>
+        </div>
         <div class="add-row">
           <input
             type="text"
@@ -1113,6 +1498,35 @@
           <button class="btn-add" id="add-btn">Add</button>
           <button class="btn-move" id="move-btn">Move</button>
         </div>
+        <div class="toolbar">
+          <div class="seg" id="view-seg" role="group" aria-label="View">
+            <button class="seg-btn" type="button" data-view="now">Now</button>
+            <button class="seg-btn" type="button" data-view="day">
+              All day
+            </button>
+          </div>
+          <input
+            type="search"
+            id="search"
+            placeholder="Search name or manager…"
+            autocomplete="off"
+            aria-label="Search locations"
+          />
+          <div class="seg" id="filter-seg" role="group" aria-label="Filter">
+            <button class="seg-btn" type="button" data-filter="all">All</button>
+            <button class="seg-btn" type="button" data-filter="short">
+              Short
+            </button>
+            <button class="seg-btn" type="button" data-filter="ok">OK</button>
+          </div>
+          <select id="sort-select" aria-label="Sort locations">
+            <option value="manual">Order added</option>
+            <option value="worst">Most short first</option>
+            <option value="name">Name A–Z</option>
+          </select>
+          <button class="btn-copy" id="copy-btn">Copy summary</button>
+        </div>
+        <div class="list-meta" id="list-meta" style="display: none"></div>
         <div class="locations" id="locations"></div>
       </section>
 
@@ -1135,6 +1549,8 @@
       </section>
     </div>
 
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
     <script>
       (function () {
         "use strict";
@@ -1144,6 +1560,12 @@
         const LS_TEAMS = "fieldmanager.teams.v1";
         const LS_THEME = "fieldmanager.theme.v1";
         const LS_NOTES = "fieldmanager.notes.v1";
+        const LS_AREA = "fieldmanager.myArea.v1";
+        const LS_AREAS = "fieldmanager.areas.v1";
+        const LS_VIEW = "fieldmanager.view.v1";
+        const LS_SORT = "fieldmanager.sort.v1";
+        const LS_FILTER = "fieldmanager.filter.v1";
+        const DEFAULT_AREA = "My area";
 
         let locations = load(LS_LOC, []);
         let transfers = load(LS_TRANSFERS, []);
@@ -1153,6 +1575,24 @@
         let tid = 1; // next transfer id
         let teamId = 1; // next standby team id
         let transfersExpanded = localStorage.getItem(LS_TR_OPEN) !== "0";
+        // The area being managed. Locations in any other area are still valid
+        // transfer endpoints, but they are never listed or counted here.
+        let myArea = localStorage.getItem(LS_AREA) || "";
+        // Kept explicitly rather than read back off the locations, so an area
+        // you have not filled in yet survives switching away from it.
+        let areas = load(LS_AREAS, []);
+
+        // "now" counts only the shifts running at this minute; "day" is the
+        // whole roster. Now is the default: it is the number you act on.
+        let view = localStorage.getItem(LS_VIEW) === "day" ? "day" : "now";
+        let sortMode = localStorage.getItem(LS_SORT) || "manual";
+        let filterMode = localStorage.getItem(LS_FILTER) || "all";
+        // Deliberately not persisted — a search left over from last night's
+        // shift hiding half the bars is the last thing you want on open.
+        let query = "";
+        // Minutes since local midnight. Refreshed on a timer so the Now view
+        // keeps up with the clock without rebuilding the list.
+        let nowM = nowMinutes();
 
         migrate();
 
@@ -1169,8 +1609,16 @@
         const $teams = document.getElementById("teams");
         const $notes = document.getElementById("notes");
         const $themeBtn = document.getElementById("theme-btn");
+        const $areaSelect = document.getElementById("area-select");
+        const $viewSeg = document.getElementById("view-seg");
+        const $filterSeg = document.getElementById("filter-seg");
+        const $sortSelect = document.getElementById("sort-select");
+        const $search = document.getElementById("search");
+        const $copyBtn = document.getElementById("copy-btn");
+        const $listMeta = document.getElementById("list-meta");
+        const $toasts = document.getElementById("toasts");
 
-        let refs = { locs: {}, shifts: {} };
+        let refs = { locs: {}, shifts: {}, rows: {} };
 
         function load(key, fallback) {
           try {
@@ -1188,6 +1636,18 @@
         function saveTeams() {
           localStorage.setItem(LS_TEAMS, JSON.stringify(teams));
         }
+        function saveArea() {
+          localStorage.setItem(LS_AREA, myArea);
+        }
+        function saveAreas() {
+          localStorage.setItem(LS_AREAS, JSON.stringify(areas));
+        }
+        // Deleting a location touches all three stores, and so does undoing it.
+        function saveAll() {
+          saveLocations();
+          saveTransfers();
+          saveTeams();
+        }
 
         // Bring older/loose data into the current shape.
         function migrate() {
@@ -1201,6 +1661,11 @@
             maxLoc = Math.max(maxLoc, loc.id);
             if (typeof loc.expanded !== "boolean") loc.expanded = false;
             if (typeof loc.manager !== "string") loc.manager = "";
+            if (typeof loc.area !== "string" || !loc.area.trim())
+              loc.area = DEFAULT_AREA;
+            // Ad-hoc records for another area's locations, kept only as long
+            // as something still points at them. See pruneForeign().
+            if (typeof loc.foreign !== "boolean") loc.foreign = false;
             delete loc.note;
             if (!Array.isArray(loc.shifts)) {
               const p = loc.planned || 0,
@@ -1215,7 +1680,12 @@
             for (const s of loc.shifts)
               maxShift = Math.max(maxShift, s.id || 0);
           }
-          for (const t of transfers) maxTr = Math.max(maxTr, t.id || 0);
+          for (const t of transfers) {
+            maxTr = Math.max(maxTr, t.id || 0);
+            // Moves recorded before the log kept times stay untimed rather
+            // than being stamped with a time they did not happen at.
+            if (typeof t.at !== "number") delete t.at;
+          }
           nextId = maxLoc + 1;
           sid = maxShift + 1;
           tid = maxTr + 1;
@@ -1237,15 +1707,159 @@
               tm.location = null;
           }
           teamId = maxTeam + 1;
+
+          // First run, or a save from before areas existed: adopt the area of
+          // the first location we did not import from elsewhere.
+          if (!myArea) {
+            const own = locations.find((l) => !l.foreign);
+            myArea = own ? own.area : DEFAULT_AREA;
+            saveArea();
+          }
+
+          // Any area a location claims is real whether or not it was stored,
+          // and the area being managed is real even while it is still empty.
+          if (!Array.isArray(areas)) areas = [];
+          areas = areas.filter(
+            (a, i) =>
+              typeof a === "string" && a.trim() && areas.indexOf(a) === i,
+          );
+          for (const l of locations)
+            if (!areas.includes(l.area)) areas.push(l.area);
+          if (!areas.includes(myArea)) areas.push(myArea);
+          saveAreas();
         }
 
         function locById(id) {
           return locations.find((l) => l.id === id);
         }
-        function nameOf(id) {
-          const l = locById(id);
-          return l ? l.name : "(removed)";
+        function myLocations() {
+          return locations.filter((l) => l.area === myArea);
         }
+        function isForeign(loc) {
+          return loc.area !== myArea;
+        }
+        // Every area we know of: ours first, the rest alphabetically.
+        function areaList() {
+          const rest = areas.filter((a) => a !== myArea);
+          rest.sort((a, b) => a.localeCompare(b));
+          return [myArea, ...rest];
+        }
+        function addArea(name) {
+          if (areas.includes(name)) return;
+          areas.push(name);
+          saveAreas();
+        }
+        // Out-of-area locations carry their area so a transfer row reads
+        // unambiguously next to your own names.
+        function labelOf(id) {
+          const l = locById(id);
+          if (!l) return "(removed)";
+          return isForeign(l) ? l.area + " · " + l.name : l.name;
+        }
+        // An ad-hoc record for another area's location exists only to be one
+        // end of a transfer. Once nothing points at it, it stops existing.
+        function pruneForeign() {
+          const before = locations.length;
+          locations = locations.filter(
+            (l) =>
+              !l.foreign ||
+              l.area === myArea ||
+              l.shifts.length > 0 ||
+              teams.some((tm) => tm.location === l.id) ||
+              transfers.some((t) => t.from === l.id || t.to === l.id),
+          );
+          if (locations.length !== before) saveLocations();
+        }
+
+        /* ---------- Clock and shift windows ---------- */
+
+        function pad2(n) {
+          return (n < 10 ? "0" : "") + n;
+        }
+        function hhmm(d) {
+          return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+        }
+        function clock() {
+          return hhmm(new Date());
+        }
+        function nowMinutes() {
+          const d = new Date();
+          return d.getHours() * 60 + d.getMinutes();
+        }
+        // "HH:MM" as minutes since midnight, or null if it is not a usable time.
+        function parseHM(v) {
+          if (typeof v !== "string") return null;
+          const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim());
+          if (!m) return null;
+          const h = +m[1],
+            mi = +m[2];
+          if (h > 23 || mi > 59) return null;
+          return h * 60 + mi;
+        }
+        function isTimed(s) {
+          return parseHM(s.start) !== null && parseHM(s.end) !== null;
+        }
+        // Festival shifts run past midnight, so an end at or before the start
+        // is read as wrapping into the next day.
+        function shiftCovers(s, t) {
+          const a = parseHM(s.start),
+            b = parseHM(s.end);
+          if (a === null || b === null) return false;
+          return b > a ? t >= a && t < b : t >= a || t < b;
+        }
+        function minutesUntil(startM, t) {
+          return (startM - t + 1440) % 1440;
+        }
+        function fmtIn(m) {
+          if (m < 60) return m + "m";
+          const h = Math.floor(m / 60),
+            r = m % 60;
+          return r ? h + "h" + pad2(r) : h + "h";
+        }
+        function shiftRange(s) {
+          if (isTimed(s)) return s.start + "–" + s.end;
+          return "untimed";
+        }
+
+        // What a location looks like at minute `t`: the shifts running, what
+        // they call for, and what is coming next. Shifts with no times cannot
+        // be placed on a clock at all, so such a location reports its whole
+        // roster as current rather than claiming to be closed.
+        function nowState(loc, t) {
+          const timed = loc.shifts.filter(isTimed);
+          if (timed.length === 0) {
+            const day = shiftTotals(loc);
+            return {
+              untimed: true,
+              active: [],
+              planned: day.planned,
+              rostered: day.actual,
+              next: null,
+              nextIn: null,
+            };
+          }
+          const active = timed.filter((s) => shiftCovers(s, t));
+          let planned = 0,
+            rostered = 0;
+          for (const s of active) {
+            planned += s.planned;
+            rostered += s.actual;
+          }
+          // Soonest shift that is not already running.
+          let next = null,
+            nextIn = null;
+          for (const s of timed) {
+            if (active.indexOf(s) !== -1) continue;
+            const d = minutesUntil(parseHM(s.start), t);
+            if (nextIn === null || d < nextIn) {
+              nextIn = d;
+              next = s;
+            }
+          }
+          return { untimed: false, active, planned, rostered, next, nextIn };
+        }
+
+        /* ---------- Headcounts ---------- */
 
         function shiftTotals(loc) {
           return loc.shifts.reduce(
@@ -1282,11 +1896,35 @@
           return n;
         }
 
-        // Headcount actually standing at a location: rostered, adjusted for
-        // transfers in/out, plus any standby team parked there.
-        function effectiveActual(loc) {
+        // Planned and actual under the current view. Transfers and standby
+        // teams are point-in-time adjustments, so they only fold into the Now
+        // figure; the day column stays a plain roster sum, which is the only
+        // way the two numbers mean the same kind of thing as each other.
+        function viewTotals(loc) {
+          if (view !== "now") {
+            const day = shiftTotals(loc);
+            return { planned: day.planned, actual: day.actual, st: null };
+          }
+          const st = nowState(loc, nowM);
+          return {
+            planned: st.planned,
+            actual:
+              st.rostered + netTransfer(loc.id) + standbyForLocation(loc.id),
+            st: st,
+          };
+        }
+        function viewDiff(loc) {
+          const t = viewTotals(loc);
+          return t.actual - t.planned;
+        }
+
+        // Headcount actually standing at a location this minute: the shifts
+        // running now, plus transfers in and out, plus any standby team parked
+        // there. This is the number a move has to respect, whichever view the
+        // list happens to be in.
+        function onSiteNow(loc) {
           return (
-            shiftTotals(loc).actual +
+            nowState(loc, nowMinutes()).rostered +
             netTransfer(loc.id) +
             standbyForLocation(loc.id)
           );
@@ -1306,10 +1944,79 @@
           el.textContent = info.label;
         }
 
-        /* ---------- Confirmation modal ---------- */
+        function signed(n) {
+          return n > 0 ? "+" + n : String(n);
+        }
+        function plural(n, one, many) {
+          return n + " " + (n === 1 ? one : many);
+        }
+
+        /* ---------- Toasts ---------- */
+
+        // Short-lived message at the bottom of the screen, optionally carrying
+        // one action. Deletions use it to offer an undo rather than asking for
+        // confirmation up front, which is both faster and safer on a phone.
+        const MAX_TOASTS = 3;
+        function toast(message, opts) {
+          const o = opts || {};
+          const el = document.createElement("div");
+          el.className = "toast";
+          const msg = document.createElement("span");
+          msg.className = "toast-msg";
+          msg.textContent = message;
+          el.appendChild(msg);
+
+          let timer = null;
+          function dismiss() {
+            if (timer) clearTimeout(timer);
+            timer = null;
+            el.classList.add("out");
+            setTimeout(() => el.remove(), 220);
+          }
+
+          if (o.action) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "toast-btn";
+            b.textContent = o.label || "Undo";
+            b.addEventListener("click", () => {
+              dismiss();
+              o.action();
+            });
+            el.appendChild(b);
+          }
+
+          $toasts.appendChild(el);
+          while ($toasts.children.length > MAX_TOASTS)
+            $toasts.firstChild.remove();
+
+          const ms = o.ms || (o.action ? 8000 : 2600);
+          if (ms !== Infinity) timer = setTimeout(dismiss, ms);
+        }
+
+        /* ---------- Modals ---------- */
+
+        // The move dialog opens a small form on top of itself, so key handling
+        // has to know which layer is in front. Each modal takes a token on open
+        // and ignores Escape/Enter unless it is the one on top.
+        const modalStack = [];
+        let modalSeq = 0;
+        function pushModal() {
+          const token = ++modalSeq;
+          modalStack.push(token);
+          return token;
+        }
+        function popModal(token) {
+          const i = modalStack.indexOf(token);
+          if (i !== -1) modalStack.splice(i, 1);
+        }
+        function isTopModal(token) {
+          return modalStack[modalStack.length - 1] === token;
+        }
 
         function confirmModal({ title, message, confirmLabel = "Delete" }) {
           return new Promise((resolve) => {
+            const token = pushModal();
             const prevFocus = document.activeElement;
             const overlay = document.createElement("div");
             overlay.className = "modal-overlay";
@@ -1343,14 +2050,17 @@
             cancel.focus();
 
             function close(result) {
+              popModal(token);
               document.removeEventListener("keydown", onKey);
               overlay.remove();
               if (prevFocus && prevFocus.focus) prevFocus.focus();
               resolve(result);
             }
+            // Escape only. Enter is left to whichever button has focus — which
+            // is Cancel — so a stray keypress can never confirm a deletion.
             function onKey(e) {
+              if (!isTopModal(token)) return;
               if (e.key === "Escape") close(false);
-              else if (e.key === "Enter") close(true);
             }
             cancel.addEventListener("click", () => close(false));
             confirm.addEventListener("click", () => close(true));
@@ -1364,21 +2074,200 @@
         /* ---------- Render locations ---------- */
 
         function render() {
+          pruneForeign();
+          renderAreaSwitch();
+          paintToolbar();
+          nowM = nowMinutes();
           $locations.innerHTML = "";
-          refs = { locs: {}, shifts: {} };
+          refs = { locs: {}, shifts: {}, rows: {} };
 
-          if (locations.length === 0) {
+          const mine = myLocations();
+          const shown = visibleLocations(mine);
+          if (mine.length === 0) {
             const e = document.createElement("div");
             e.className = "empty";
-            e.textContent = "No locations yet. Add one above to get started.";
+            e.textContent = locations.length
+              ? "No locations in " + myArea + " yet. Add one above."
+              : "No locations yet. Add one above to get started.";
+            $locations.appendChild(e);
+          } else if (shown.length === 0) {
+            const e = document.createElement("div");
+            e.className = "empty";
+            e.textContent = "No locations match the current search or filter.";
             $locations.appendChild(e);
           } else {
-            for (const loc of locations) $locations.appendChild(renderLoc(loc));
+            for (const loc of shown) $locations.appendChild(renderLoc(loc));
           }
 
+          renderListMeta(mine.length, shown.length);
           refreshComputed();
           renderTransfers();
           renderTeams();
+        }
+
+        /* ---------- Search, filter, sort ---------- */
+
+        // The list you actually see: your area, narrowed by the search box and
+        // the All/Short/OK filter, in the chosen order. Short and Most-short
+        // both read the diff of the current view, so switching to Now retriages
+        // the list against what is standing there this minute.
+        function visibleLocations(mine) {
+          const q = query.trim().toLowerCase();
+          const out = mine.filter((loc) => {
+            if (q && !(loc.name + " " + loc.manager).toLowerCase().includes(q))
+              return false;
+            if (filterMode === "short") return viewDiff(loc) < 0;
+            if (filterMode === "ok") return viewDiff(loc) >= 0;
+            return true;
+          });
+          if (sortMode === "name") {
+            out.sort((a, b) => a.name.localeCompare(b.name));
+          } else if (sortMode === "worst") {
+            out.sort(
+              (a, b) =>
+                viewDiff(a) - viewDiff(b) || a.name.localeCompare(b.name),
+            );
+          }
+          return out;
+        }
+
+        function paintToolbar() {
+          for (const b of $viewSeg.querySelectorAll(".seg-btn"))
+            b.setAttribute(
+              "aria-pressed",
+              b.dataset.view === view ? "true" : "false",
+            );
+          for (const b of $filterSeg.querySelectorAll(".seg-btn"))
+            b.setAttribute(
+              "aria-pressed",
+              b.dataset.filter === filterMode ? "true" : "false",
+            );
+          $sortSelect.value = sortMode;
+        }
+
+        function renderListMeta(total, shown) {
+          if (shown === total) {
+            $listMeta.style.display = "none";
+            $listMeta.innerHTML = "";
+            return;
+          }
+          $listMeta.style.display = "";
+          $listMeta.innerHTML = "";
+          const txt = document.createElement("span");
+          txt.textContent = "Showing " + shown + " of " + total;
+          const clear = document.createElement("button");
+          clear.type = "button";
+          clear.textContent = "Clear";
+          clear.addEventListener("click", () => {
+            query = "";
+            $search.value = "";
+            filterMode = "all";
+            localStorage.setItem(LS_FILTER, filterMode);
+            render();
+          });
+          $listMeta.appendChild(txt);
+          $listMeta.appendChild(clear);
+        }
+
+        $viewSeg.addEventListener("click", (e) => {
+          const b = e.target.closest(".seg-btn");
+          if (!b) return;
+          view = b.dataset.view === "day" ? "day" : "now";
+          localStorage.setItem(LS_VIEW, view);
+          render();
+        });
+
+        $filterSeg.addEventListener("click", (e) => {
+          const b = e.target.closest(".seg-btn");
+          if (!b) return;
+          filterMode = b.dataset.filter;
+          localStorage.setItem(LS_FILTER, filterMode);
+          render();
+        });
+
+        $sortSelect.addEventListener("change", () => {
+          sortMode = $sortSelect.value;
+          localStorage.setItem(LS_SORT, sortMode);
+          render();
+        });
+
+        $search.addEventListener("input", () => {
+          query = $search.value;
+          render();
+        });
+
+        // The Now view is only as good as its clock. Figures and chips are
+        // refreshed in place; the order is deliberately left alone, so rows
+        // never shuffle under a thumb that is mid-tap.
+        setInterval(() => {
+          if (view === "now") refreshComputed();
+        }, 15000);
+
+        /* ---------- Area switcher ---------- */
+
+        const NEW_AREA = " new-area";
+        const REMOVE_AREA = " remove-area";
+
+        function renderAreaSwitch() {
+          $areaSelect.innerHTML = "";
+          for (const a of areaList()) {
+            const o = document.createElement("option");
+            o.value = a;
+            o.textContent = a;
+            $areaSelect.appendChild(o);
+          }
+          const add = document.createElement("option");
+          add.value = NEW_AREA;
+          add.textContent = "+ New area…";
+          $areaSelect.appendChild(add);
+          // Areas stay until dropped, so there has to be a way out. Offered
+          // only with nothing to lose here and somewhere else to land.
+          if (myLocations().length === 0 && areas.length > 1) {
+            const rm = document.createElement("option");
+            rm.value = REMOVE_AREA;
+            rm.textContent = "− Remove “" + myArea + "”";
+            $areaSelect.appendChild(rm);
+          }
+          $areaSelect.value = myArea;
+        }
+
+        $areaSelect.addEventListener("change", async () => {
+          const picked = $areaSelect.value;
+          if (picked === REMOVE_AREA) {
+            // Nothing is being deleted but the name itself, so no confirmation.
+            const next = areaList()[1];
+            areas = areas.filter((a) => a !== myArea);
+            saveAreas();
+            myArea = next;
+            saveArea();
+            render();
+            return;
+          }
+          if (picked !== NEW_AREA) {
+            switchArea(picked);
+            return;
+          }
+          // Put the select back before awaiting, so a cancelled prompt does
+          // not leave "+ New area…" showing as the current area.
+          $areaSelect.value = myArea;
+          const values = await formModal({
+            title: "New area",
+            fields: [{ label: "Area name", placeholder: "e.g. Area B" }],
+            confirmLabel: "Create",
+          });
+          const name = values && values[0].trim();
+          if (name) switchArea(name);
+        });
+
+        function switchArea(name) {
+          addArea(name);
+          if (name === myArea) {
+            renderAreaSwitch();
+            return;
+          }
+          myArea = name;
+          saveArea();
+          render();
         }
 
         function renderLoc(loc) {
@@ -1409,8 +2298,13 @@
           } else {
             manager.style.display = "none";
           }
+          // In the Now view this reads as the running shift window, or
+          // "closed"; in the All day view it stays a shift count.
           const count = document.createElement("span");
           count.className = "shift-count";
+          const nextChip = document.createElement("span");
+          nextChip.className = "next-chip";
+          nextChip.style.display = "none";
           const loan = document.createElement("span");
           loan.className = "loan";
           loan.style.display = "none";
@@ -1420,6 +2314,7 @@
           titleMain.appendChild(name);
           titleMain.appendChild(manager);
           titleMain.appendChild(count);
+          titleMain.appendChild(nextChip);
           titleMain.appendChild(loan);
           titleMain.appendChild(standbyChip);
           title.appendChild(titleMain);
@@ -1451,6 +2346,13 @@
           editBtn.setAttribute("aria-label", "Edit " + loc.name);
           editBtn.addEventListener("click", () => editLocationModal(loc));
 
+          const dupBtn = document.createElement("button");
+          dupBtn.className = "btn-dup";
+          dupBtn.innerHTML = "&#10697;";
+          dupBtn.title = "Duplicate with its shifts";
+          dupBtn.setAttribute("aria-label", "Duplicate " + loc.name);
+          dupBtn.addEventListener("click", () => duplicateLocation(loc));
+
           const del = document.createElement("button");
           del.className = "btn-del";
           del.innerHTML = "&times;";
@@ -1459,7 +2361,7 @@
           del.addEventListener("click", async () => {
             const n = loc.shifts.length;
             const shiftsNote = n
-              ? " and its " + n + (n === 1 ? " shift" : " shifts")
+              ? " and its " + plural(n, "shift", "shifts")
               : "";
             const ok = await confirmModal({
               title: "Delete location?",
@@ -1468,9 +2370,18 @@
                 (loc.name.trim() || "This location") +
                 "”" +
                 shiftsNote +
-                " will be permanently removed.",
+                " will be removed.",
             });
             if (!ok) return;
+            // Enough to put every piece back: where it sat, the transfers that
+            // went with it, and which teams were standing there.
+            const idx = locations.indexOf(loc);
+            const cutTransfers = transfers.filter(
+              (t) => t.from === loc.id || t.to === loc.id,
+            );
+            const detached = teams
+              .filter((tm) => tm.location === loc.id)
+              .map((tm) => tm.id);
             locations = locations.filter((l) => l.id !== loc.id);
             transfers = transfers.filter(
               (t) => t.from !== loc.id && t.to !== loc.id,
@@ -1478,10 +2389,21 @@
             // Any standby teams here fall back to the reserve pool.
             for (const tm of teams)
               if (tm.location === loc.id) tm.location = null;
-            saveLocations();
-            saveTransfers();
-            saveTeams();
+            saveAll();
             render();
+            toast("Deleted “" + (loc.name.trim() || "location") + "”", {
+              action: () => {
+                locations.splice(Math.min(idx, locations.length), 0, loc);
+                for (const t of cutTransfers)
+                  if (!transfers.some((x) => x.id === t.id)) transfers.push(t);
+                for (const id of detached) {
+                  const tm = teams.find((x) => x.id === id);
+                  if (tm && tm.location == null) tm.location = loc.id;
+                }
+                saveAll();
+                render();
+              },
+            });
           });
 
           // Stats and actions are grouped so the narrow layout can move them
@@ -1496,6 +2418,7 @@
           const actions = document.createElement("div");
           actions.className = "loc-actions";
           actions.appendChild(editBtn);
+          actions.appendChild(dupBtn);
           actions.appendChild(del);
 
           head.appendChild(exp);
@@ -1509,6 +2432,7 @@
             actual: actualField.val,
             diff: diffVal,
             count: count,
+            next: nextChip,
             loan: loan,
             standbyChip: standbyChip,
             name: name,
@@ -1546,7 +2470,89 @@
           return { field, input };
         }
 
-        function editLocationModal(loc) {
+        // A modal of text fields. Resolves to their values in order, or to
+        // null if dismissed. Optional `list` on a field offers suggestions.
+        let listSeq = 0;
+        function formModal({ title, fields, confirmLabel = "Save" }) {
+          return new Promise((resolve) => {
+            const token = pushModal();
+            const prevFocus = document.activeElement;
+            const overlay = document.createElement("div");
+            overlay.className = "modal-overlay";
+            const modal = document.createElement("div");
+            modal.className = "modal";
+            modal.setAttribute("role", "dialog");
+            modal.setAttribute("aria-modal", "true");
+
+            const h = document.createElement("h2");
+            h.textContent = title;
+
+            const wrap = document.createElement("div");
+            wrap.className = "modal-fields";
+            const inputs = fields.map((f) => {
+              const built = modalField(f.label, f.value, f.placeholder);
+              if (f.list && f.list.length) {
+                const dl = document.createElement("datalist");
+                dl.id = "fm-list-" + ++listSeq;
+                for (const v of f.list) {
+                  const o = document.createElement("option");
+                  o.value = v;
+                  dl.appendChild(o);
+                }
+                built.field.appendChild(dl);
+                built.input.setAttribute("list", dl.id);
+              }
+              wrap.appendChild(built.field);
+              return built.input;
+            });
+
+            const actions = document.createElement("div");
+            actions.className = "modal-actions";
+            const cancel = document.createElement("button");
+            cancel.className = "btn-ghost";
+            cancel.textContent = "Cancel";
+            const save = document.createElement("button");
+            save.className = "btn-confirm";
+            save.textContent = confirmLabel;
+            actions.appendChild(cancel);
+            actions.appendChild(save);
+
+            modal.appendChild(h);
+            modal.appendChild(wrap);
+            modal.appendChild(actions);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            inputs[0].focus();
+            inputs[0].select();
+
+            function close(result) {
+              popModal(token);
+              document.removeEventListener("keydown", onKey);
+              overlay.remove();
+              if (prevFocus && prevFocus.focus) prevFocus.focus();
+              resolve(result);
+            }
+            function commit() {
+              close(inputs.map((i) => i.value));
+            }
+            function onKey(e) {
+              if (!isTopModal(token)) return;
+              if (e.key === "Escape") close(null);
+              else if (e.key === "Enter") commit();
+            }
+            cancel.addEventListener("click", () => close(null));
+            save.addEventListener("click", commit);
+            overlay.addEventListener("click", (e) => {
+              if (e.target === overlay) close(null);
+            });
+            document.addEventListener("keydown", onKey);
+          });
+        }
+
+        // Last resort when the clipboard is unavailable: put the text on screen,
+        // selected, so it can be copied by hand.
+        function textModal(title, text) {
+          const token = pushModal();
           const prevFocus = document.activeElement;
           const overlay = document.createElement("div");
           overlay.className = "modal-overlay";
@@ -1556,64 +2562,77 @@
           modal.setAttribute("aria-modal", "true");
 
           const h = document.createElement("h2");
-          h.textContent = "Edit location";
-
-          const fields = document.createElement("div");
-          fields.className = "modal-fields";
-          const nameField = modalField(
-            "Location name",
-            loc.name,
-            "Location name",
-          );
-          const managerField = modalField(
-            "Bar manager",
-            loc.manager,
-            "e.g. Vince",
-          );
-          fields.appendChild(nameField.field);
-          fields.appendChild(managerField.field);
+          h.textContent = title;
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.readOnly = true;
+          ta.rows = 12;
+          ta.style.width = "100%";
 
           const actions = document.createElement("div");
           actions.className = "modal-actions";
-          const cancel = document.createElement("button");
-          cancel.className = "btn-ghost";
-          cancel.textContent = "Cancel";
-          const save = document.createElement("button");
-          save.className = "btn-confirm";
-          save.textContent = "Save";
-          actions.appendChild(cancel);
-          actions.appendChild(save);
+          const done = document.createElement("button");
+          done.className = "btn-ghost";
+          done.textContent = "Close";
+          actions.appendChild(done);
 
           modal.appendChild(h);
-          modal.appendChild(fields);
+          modal.appendChild(ta);
           modal.appendChild(actions);
           overlay.appendChild(modal);
           document.body.appendChild(overlay);
-          nameField.input.focus();
-          nameField.input.select();
+          ta.focus();
+          ta.select();
 
           function close() {
+            popModal(token);
             document.removeEventListener("keydown", onKey);
             overlay.remove();
             if (prevFocus && prevFocus.focus) prevFocus.focus();
           }
-          function commit() {
-            loc.name = nameField.input.value;
-            loc.manager = managerField.input.value;
-            saveLocations();
-            close();
-            render();
-          }
           function onKey(e) {
-            if (e.key === "Escape") close();
-            else if (e.key === "Enter") commit();
+            if (isTopModal(token) && e.key === "Escape") close();
           }
-          cancel.addEventListener("click", close);
-          save.addEventListener("click", commit);
+          done.addEventListener("click", close);
           overlay.addEventListener("click", (e) => {
             if (e.target === overlay) close();
           });
           document.addEventListener("keydown", onKey);
+        }
+
+        async function editLocationModal(loc) {
+          const values = await formModal({
+            title: "Edit location",
+            fields: [
+              {
+                label: "Location name",
+                value: loc.name,
+                placeholder: "Location name",
+              },
+              {
+                label: "Bar manager",
+                value: loc.manager,
+                placeholder: "e.g. Vince",
+              },
+              {
+                label: "Area",
+                value: loc.area,
+                placeholder: "Area",
+                list: areaList(),
+              },
+            ],
+          });
+          if (!values) return;
+          loc.name = values[0];
+          loc.manager = values[1];
+          // Retagging is how you hand a location to another area; blank reads
+          // as "leave it here". Editing it by hand also claims it as real, so
+          // pruneForeign() stops treating it as a throwaway endpoint.
+          loc.area = values[2].trim() || myArea;
+          addArea(loc.area);
+          loc.foreign = false;
+          saveLocations();
+          render();
         }
 
         function renderShifts(loc) {
@@ -1683,6 +2702,7 @@
           const start = timeInput(s.start, (v) => {
             s.start = v;
             saveLocations();
+            refreshComputed();
           });
           const dash = document.createElement("span");
           dash.className = "dash";
@@ -1690,10 +2710,19 @@
           const end = timeInput(s.end, (v) => {
             s.end = v;
             saveLocations();
+            refreshComputed();
           });
+          // Marks the row the Now figures are being read from.
+          const nowBadge = document.createElement("span");
+          nowBadge.className = "now-badge";
+          nowBadge.textContent = "now";
+          // Hidden, not removed: the badge keeps its box so every shift row in
+          // a location lines its time inputs up, running or not.
+          nowBadge.style.visibility = "hidden";
           times.appendChild(start);
           times.appendChild(dash);
           times.appendChild(end);
+          times.appendChild(nowBadge);
 
           const planned = numInput(s.planned, (v) => {
             s.planned = v;
@@ -1713,16 +2742,19 @@
           del.className = "btn-del col-del";
           del.innerHTML = "&times;";
           del.title = "Remove shift";
-          del.addEventListener("click", async () => {
-            const range = s.start && s.end ? s.start + "–" + s.end + " " : "";
-            const ok = await confirmModal({
-              title: "Delete shift?",
-              message: "The " + range + "shift will be removed.",
-            });
-            if (!ok) return;
+          // No confirmation: one tap to remove, and the toast holds the undo.
+          del.addEventListener("click", () => {
+            const idx = loc.shifts.indexOf(s);
             loc.shifts = loc.shifts.filter((x) => x.id !== s.id);
             saveLocations();
             render();
+            toast("Removed " + shiftRange(s) + " shift", {
+              action: () => {
+                loc.shifts.splice(Math.min(idx, loc.shifts.length), 0, s);
+                saveLocations();
+                render();
+              },
+            });
           });
 
           row.appendChild(times);
@@ -1732,6 +2764,7 @@
           row.appendChild(del);
 
           refs.shifts[s.id] = diff;
+          refs.rows[s.id] = { row: row, badge: nowBadge };
           return row;
         }
 
@@ -1739,7 +2772,8 @@
         // the shared column header is hidden. Form controls get a <label>, so the
         // text also becomes their accessible name.
         function labelledCell(name, labelText, control) {
-          const form = control.tagName === "INPUT" || control.tagName === "SELECT";
+          const form =
+            control.tagName === "INPUT" || control.tagName === "SELECT";
           const cell = document.createElement(form ? "label" : "div");
           cell.className = "cell cell-" + name;
           const label = document.createElement("span");
@@ -1773,29 +2807,37 @@
         /* ---------- Recompute totals/badges without rebuilding inputs ---------- */
 
         function refreshComputed() {
+          nowM = nowMinutes();
           let gp = 0,
             ga = 0;
-          for (const loc of locations) {
-            const t = shiftTotals(loc);
+          const mine = myLocations();
+          for (const loc of mine) {
+            const t = viewTotals(loc);
+            const st = t.st || nowState(loc, nowM);
             const net = netTransfer(loc.id);
             const standby = standbyForLocation(loc.id);
-            const actual = effectiveActual(loc);
             gp += t.planned;
-            ga += actual;
+            ga += t.actual;
 
             for (const s of loc.shifts) {
               const el = refs.shifts[s.id];
               if (el) setDiff(el, s.planned, s.actual);
+              const row = refs.rows[s.id];
+              if (row) {
+                const on =
+                  view === "now" && !st.untimed && st.active.indexOf(s) !== -1;
+                row.row.classList.toggle("is-now", on);
+                row.badge.style.visibility = on ? "visible" : "hidden";
+              }
             }
 
             const r = refs.locs[loc.id];
             if (r) {
               r.planned.textContent = t.planned;
-              r.actual.textContent = actual;
-              setDiff(r.diff, t.planned, actual);
-              r.count.textContent =
-                loc.shifts.length +
-                (loc.shifts.length === 1 ? " shift" : " shifts");
+              r.actual.textContent = t.actual;
+              setDiff(r.diff, t.planned, t.actual);
+              setShiftLabel(r.count, loc, st);
+              setNextChip(r.next, st);
               if (net > 0) {
                 r.loan.style.display = "";
                 r.loan.className = "loan in";
@@ -1818,7 +2860,51 @@
               if (r.standbyList) refreshStandbyList(loc, r);
             }
           }
-          renderSummary(gp, ga, reservePool());
+          renderSummary(gp, ga, reservePool(), mine.length);
+        }
+
+        // In the Now view this line says which shift the card's figures come
+        // from; in the All day view it goes back to counting shifts.
+        function setShiftLabel(el, loc, st) {
+          const n = loc.shifts.length;
+          const shiftCount = n ? plural(n, "shift", "shifts") : "no shifts";
+          el.className = "shift-count";
+          if (view !== "now") {
+            el.textContent = shiftCount;
+          } else if (st.untimed) {
+            el.textContent = n ? shiftCount + " · no times set" : shiftCount;
+          } else if (st.active.length === 1) {
+            el.textContent = shiftRange(st.active[0]);
+          } else if (st.active.length > 1) {
+            el.textContent = st.active.length + " shifts running";
+          } else {
+            el.className = "shift-count closed";
+            el.textContent = "closed";
+          }
+        }
+
+        // The changeover ahead. Always shown while a location is closed, and
+        // once a running shift is within striking distance of handing over.
+        function setNextChip(el, st) {
+          const soonMin = 45;
+          const show =
+            view === "now" &&
+            st.next &&
+            !st.untimed &&
+            (st.active.length === 0 || st.nextIn <= soonMin);
+          if (!show) {
+            el.style.display = "none";
+            el.textContent = "";
+            return;
+          }
+          const soon = st.nextIn <= soonMin;
+          el.style.display = "";
+          el.className = "next-chip" + (soon ? " soon" : "");
+          el.textContent =
+            st.next.start +
+            " in " +
+            fmtIn(st.nextIn) +
+            (st.next.planned ? " · needs " + st.next.planned : "");
         }
 
         function refreshStandbyList(loc, r) {
@@ -1833,42 +2919,175 @@
             const item = document.createElement("div");
             item.className = "loc-standby-item";
             item.textContent =
-              tm.size +
-              (tm.size === 1 ? " employee" : " employees") +
-              " (standby team)";
+              plural(tm.size, "employee", "employees") + " (standby team)";
             r.standbyList.appendChild(item);
           }
         }
 
-        function renderSummary(planned, actual, reserve) {
-          if (locations.length === 0 && !reserve) {
+        function renderSummary(planned, actual, reserve, nLoc) {
+          if (nLoc === 0 && !reserve) {
             $summary.textContent = "";
             return;
           }
-          const d = actual - planned;
-          const sign = d > 0 ? "+" + d : String(d);
           let html =
-            "<b>" +
+            (view === "now" ? "At " + clock() : "All day") +
+            " &middot; <b>" +
             actual +
             "</b>/" +
             planned +
-            " staffed &middot; " +
-            locations.length +
+            " present" +
+            " &middot; " +
+            nLoc +
             " location" +
-            (locations.length === 1 ? "" : "s") +
+            (nLoc === 1 ? "" : "s") +
             " &middot; net <b>" +
-            sign +
+            signed(actual - planned) +
             "</b>";
           if (reserve > 0)
             html += " &middot; <b>" + reserve + "</b> on standby";
           $summary.innerHTML = html;
         }
 
+        /* ---------- Copy summary ---------- */
+
+        // A paste-ready block for the group chat: the way this information
+        // actually travels on a field. Short locations lead, because they are
+        // the ones somebody has to do something about.
+        function summaryText() {
+          const mine = myLocations();
+          const rows = mine.map((loc) => {
+            const t = viewTotals(loc);
+            return {
+              loc: loc,
+              planned: t.planned,
+              actual: t.actual,
+              diff: t.actual - t.planned,
+              st: t.st,
+            };
+          });
+          const gp = rows.reduce((n, r) => n + r.planned, 0);
+          const ga = rows.reduce((n, r) => n + r.actual, 0);
+          const reserve = reservePool();
+
+          const lines = [];
+          lines.push(
+            "Field Manager · " +
+              myArea +
+              " · " +
+              clock() +
+              (view === "now" ? "" : " · all day"),
+          );
+          lines.push(
+            "present " +
+              ga +
+              "/" +
+              gp +
+              " (" +
+              signed(ga - gp) +
+              ") · " +
+              plural(mine.length, "location", "locations") +
+              (reserve ? " · " + reserve + " on standby" : ""),
+          );
+
+          const isClosed = (r) =>
+            r.st && !r.st.untimed && r.st.active.length === 0 && r.actual === 0;
+          const short = rows
+            .filter((r) => r.diff < 0)
+            .sort((a, b) => a.diff - b.diff);
+          const closed = rows.filter((r) => r.diff >= 0 && isClosed(r));
+          const ok = rows.filter((r) => r.diff >= 0 && !isClosed(r));
+
+          function row(r) {
+            const bits = [
+              r.actual + "/" + r.planned + " (" + signed(r.diff) + ")",
+            ];
+            if (r.st && !r.st.untimed && r.st.active.length === 1)
+              bits.push(shiftRange(r.st.active[0]));
+            if (r.loc.manager.trim()) bits.push(r.loc.manager.trim());
+            return "- " + r.loc.name + " — " + bits.join(" · ");
+          }
+
+          if (short.length) {
+            lines.push("");
+            lines.push("SHORT (" + short.length + ")");
+            for (const r of short) lines.push(row(r));
+          }
+          if (ok.length) {
+            lines.push("");
+            lines.push("OK (" + ok.length + ")");
+            for (const r of ok) lines.push(row(r));
+          }
+          if (closed.length) {
+            lines.push("");
+            lines.push("CLOSED (" + closed.length + ")");
+            for (const r of closed)
+              lines.push(
+                "- " +
+                  r.loc.name +
+                  (r.st.next
+                    ? " — next " + r.st.next.start + " in " + fmtIn(r.st.nextIn)
+                    : ""),
+              );
+          }
+          if (transfers.length) {
+            lines.push("");
+            lines.push("MOVES (" + transfers.length + ")");
+            for (const t of orderedTransfers())
+              lines.push(
+                "- " +
+                  (t.at ? hhmm(new Date(t.at)) + " " : "") +
+                  labelOf(t.from) +
+                  " -> " +
+                  labelOf(t.to) +
+                  ": " +
+                  t.count,
+              );
+          }
+          return lines.join("\n");
+        }
+
+        function legacyCopy(text) {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.top = "0";
+          ta.style.left = "0";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          ta.setSelectionRange(0, text.length);
+          let ok = false;
+          try {
+            ok = document.execCommand("copy");
+          } catch (e) {
+            ok = false;
+          }
+          ta.remove();
+          return ok;
+        }
+
+        $copyBtn.addEventListener("click", async () => {
+          const text = summaryText();
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(text);
+              toast("Summary copied");
+              return;
+            }
+          } catch (e) {
+            /* fall through to the textarea route */
+          }
+          if (legacyCopy(text)) toast("Summary copied");
+          else textModal("Summary", text);
+        });
+
         /* ---------- Move / transfers ---------- */
 
         $moveBtn.addEventListener("click", moveModal);
 
         function moveModal() {
+          const token = pushModal();
           const prevFocus = document.activeElement;
           const overlay = document.createElement("div");
           overlay.className = "modal-overlay";
@@ -1883,19 +3102,27 @@
           modal.appendChild(h);
 
           function close() {
+            popModal(token);
             document.removeEventListener("keydown", onKey);
             overlay.remove();
             if (prevFocus && prevFocus.focus) prevFocus.focus();
           }
+          // Leaving without moving anyone can orphan a just-added out-of-area
+          // location, and render() is what clears those out.
+          function dismiss() {
+            close();
+            render();
+          }
           function onKey(e) {
-            if (e.key === "Escape") close();
+            if (!isTopModal(token)) return;
+            if (e.key === "Escape") dismiss();
             else if (e.key === "Enter") commit();
           }
 
-          if (locations.length < 2) {
+          if (locations.length === 0) {
             const msg = document.createElement("p");
             msg.textContent =
-              "Add at least two locations to move people between them.";
+              "Add a location first, then you can move people between them.";
             modal.appendChild(msg);
             const actions = document.createElement("div");
             actions.className = "modal-actions";
@@ -1915,26 +3142,54 @@
             return;
           }
 
-          let fromId = locations[0].id;
-          let toId = locations[1].id;
+          // Prefer your own locations for the initial pair. With only one
+          // location to hand, the other end starts empty and has to be picked
+          // or created — that is the out-of-area case.
+          const mine = myLocations();
+          let fromId = (mine.length ? mine : locations)[0].id;
+          let toId = null;
+          for (const l of mine)
+            if (l.id !== fromId) {
+              toId = l.id;
+              break;
+            }
+          if (toId == null)
+            for (const l of locations)
+              if (l.id !== fromId) {
+                toId = l.id;
+                break;
+              }
 
           const cols = document.createElement("div");
           cols.className = "move-cols";
-          const fromCol = picker("From", () => fromId, (id) => {
-            // Picking the location already on the other side swaps the ends,
-            // which keeps every option live instead of greying one out.
-            if (id === toId) toId = fromId;
-            fromId = id;
-            refresh();
-          });
+          const fromCol = picker(
+            "From",
+            () => fromId,
+            (id) => {
+              // Picking the location already on the other side swaps the ends,
+              // which keeps every option live instead of greying one out.
+              if (id === toId) toId = fromId;
+              fromId = id;
+              refresh();
+            },
+          );
           const arrow = document.createElement("span");
           arrow.className = "arrow";
-          arrow.textContent = "\u2192";
-          const toCol = picker("To", () => toId, (id) => {
-            if (id === fromId) fromId = toId;
-            toId = id;
-            refresh();
-          });
+          arrow.textContent = "→";
+          const toCol = picker(
+            "To",
+            () => toId,
+            (id) => {
+              if (id === fromId) {
+                // Nothing on this side to swap back, so ignore rather than
+                // pointing the transfer at itself.
+                if (toId == null) return;
+                fromId = toId;
+              }
+              toId = id;
+              refresh();
+            },
+          );
           cols.appendChild(fromCol.col);
           cols.appendChild(arrow);
           cols.appendChild(toCol.col);
@@ -1977,15 +3232,17 @@
           count.select();
           overlay.scrollTop = 0;
 
-          cancel.addEventListener("click", close);
+          cancel.addEventListener("click", dismiss);
           confirm.addEventListener("click", commit);
           overlay.addEventListener("click", (e) => {
-            if (e.target === overlay) close();
+            if (e.target === overlay) dismiss();
           });
           document.addEventListener("keydown", onKey);
 
           // A labelled, scrollable list of locations. Showing each one's current
           // headcount is the point of picking here rather than in a dropdown.
+          // Your area is listed flat; every other area is a collapsed group, so
+          // this stays the one place other areas are visible at all.
           function picker(labelText, getSelected, onPick) {
             const col = document.createElement("div");
             col.className = "move-col";
@@ -1999,50 +3256,201 @@
             col.appendChild(label);
             col.appendChild(list);
 
-            function draw() {
-              list.innerHTML = "";
-              for (const loc of locations) {
-                const opt = document.createElement("button");
-                opt.type = "button";
-                opt.className = "picker-option";
-                const nm = document.createElement("span");
-                nm.className = "nm";
-                nm.textContent = loc.name;
+            const add = document.createElement("button");
+            add.type = "button";
+            add.className = "picker-add";
+            add.textContent = "+ Another area’s location…";
+            add.addEventListener("click", addForeign);
+            col.appendChild(add);
+
+            const open = new Set();
+
+            function option(loc, selected, nested) {
+              const opt = document.createElement("button");
+              opt.type = "button";
+              opt.className = "picker-option" + (nested ? " nested" : "");
+              const nm = document.createElement("span");
+              nm.className = "nm";
+              nm.textContent = loc.name;
+              opt.appendChild(nm);
+              // Another area's roster is not ours to know, so only our own
+              // options carry a headcount.
+              if (!nested) {
                 const staff = document.createElement("span");
                 staff.className = "staff";
-                staff.textContent = effectiveActual(loc) + " staffed";
-                opt.appendChild(nm);
+                staff.textContent = onSiteNow(loc) + " present";
                 opt.appendChild(staff);
-                opt.setAttribute(
-                  "aria-pressed",
-                  loc.id === getSelected() ? "true" : "false",
+              }
+              opt.setAttribute("aria-pressed", selected ? "true" : "false");
+              opt.addEventListener("click", () => onPick(loc.id));
+              return opt;
+            }
+
+            function groupHeader(area, isOpen, n, onToggle) {
+              const b = document.createElement("button");
+              b.type = "button";
+              b.className = "picker-group";
+              b.setAttribute("aria-expanded", isOpen ? "true" : "false");
+              const x = document.createElement("span");
+              x.className = "gx";
+              x.textContent = isOpen ? "▾" : "▸";
+              const nm = document.createElement("span");
+              nm.className = "gn";
+              nm.textContent = area;
+              const c = document.createElement("span");
+              c.className = "gc";
+              c.textContent = String(n);
+              b.appendChild(x);
+              b.appendChild(nm);
+              b.appendChild(c);
+              b.addEventListener("click", onToggle);
+              return b;
+            }
+
+            function draw() {
+              list.innerHTML = "";
+              const sel = getSelected();
+              const own = myLocations();
+              for (const loc of own)
+                list.appendChild(option(loc, loc.id === sel, false));
+              if (own.length === 0) {
+                const none = document.createElement("div");
+                none.className = "picker-none";
+                none.textContent = "No locations in " + myArea + ".";
+                list.appendChild(none);
+              }
+
+              for (const area of areaList().slice(1)) {
+                const inArea = locations.filter((l) => l.area === area);
+                // Known-but-empty areas still belong in the switcher and in
+                // the suggestions, but there is nothing to pick in them.
+                if (inArea.length === 0) continue;
+                // A group holding the current pick stays open regardless, so
+                // the selection is never hidden behind a collapsed header.
+                const isOpen =
+                  open.has(area) || inArea.some((l) => l.id === sel);
+                list.appendChild(
+                  groupHeader(area, isOpen, inArea.length, () => {
+                    if (open.has(area)) open.delete(area);
+                    else open.add(area);
+                    draw();
+                  }),
                 );
-                opt.addEventListener("click", () => onPick(loc.id));
-                list.appendChild(opt);
+                if (isOpen)
+                  for (const loc of inArea)
+                    list.appendChild(option(loc, loc.id === sel, true));
               }
             }
+
+            // Records a location you do not manage, purely so it can be one
+            // end of this transfer. It never shows in the locations list, and
+            // pruneForeign() drops it again if the transfer goes away.
+            async function addForeign() {
+              const values = await formModal({
+                title: "Location in another area",
+                fields: [
+                  { label: "Location name", placeholder: "e.g. Bar 7" },
+                  {
+                    label: "Area",
+                    placeholder: "e.g. Area B",
+                    list: areaList().slice(1),
+                  },
+                ],
+                confirmLabel: "Add",
+              });
+              if (!values) return;
+              const nm = values[0].trim();
+              const area = values[1].trim();
+              if (!nm || !area) return;
+              addArea(area);
+              let loc = locations.find(
+                (l) =>
+                  l.area === area &&
+                  l.name.trim().toLowerCase() === nm.toLowerCase(),
+              );
+              if (!loc) {
+                loc = {
+                  id: nextId++,
+                  name: nm,
+                  area: area,
+                  expanded: false,
+                  manager: "",
+                  shifts: [],
+                  foreign: true,
+                };
+                locations.push(loc);
+                saveLocations();
+              }
+              open.add(area);
+              onPick(loc.id);
+            }
+
             return { col, draw };
+          }
+
+          // The ceiling on this move: you cannot send people who are not
+          // there. Another area's roster is not ours to know, so a foreign
+          // source is left unchecked rather than guessed at.
+          function availableAt(id) {
+            const l = locById(id);
+            if (!l || isForeign(l)) return null;
+            return Math.max(0, onSiteNow(l));
           }
 
           function refresh() {
             fromCol.draw();
             toCol.draw();
             const c = Math.max(1, parseInt(count.value, 10) || 0);
-            summary.textContent =
-              c +
-              (c === 1 ? " person from " : " people from ") +
-              nameOf(fromId) +
-              " to " +
-              nameOf(toId);
+            const ready = toId != null && fromId !== toId;
+            const avail = ready ? availableAt(fromId) : null;
+            const over = avail !== null && c > avail;
+            confirm.disabled = !ready || over;
+            summary.className = "move-summary" + (over ? " warn" : "");
+            if (avail !== null) count.max = String(Math.max(1, avail));
+            else count.removeAttribute("max");
+            if (!ready) {
+              summary.textContent = "Pick where the people are going.";
+            } else if (over) {
+              summary.textContent =
+                avail === 0
+                  ? "Nobody present at " + labelOf(fromId) + " right now."
+                  : "Only " +
+                    plural(avail, "person", "people") +
+                    " present at " +
+                    labelOf(fromId) +
+                    ".";
+            } else {
+              summary.textContent =
+                plural(c, "person", "people") +
+                " from " +
+                labelOf(fromId) +
+                " to " +
+                labelOf(toId);
+            }
           }
 
           function commit() {
+            if (toId == null || fromId === toId) return;
             const c = Math.max(1, parseInt(count.value, 10) || 0);
-            if (!locById(fromId) || !locById(toId) || fromId === toId) return;
-            transfers.push({ id: tid++, from: fromId, to: toId, count: c });
+            if (!locById(fromId) || !locById(toId)) return;
+            const avail = availableAt(fromId);
+            // Guard again here: Enter reaches this without touching the button.
+            if (avail !== null && c > avail) {
+              refresh();
+              return;
+            }
+            const to = labelOf(toId);
+            transfers.push({
+              id: tid++,
+              from: fromId,
+              to: toId,
+              count: c,
+              at: Date.now(),
+            });
             saveTransfers();
             close();
             render();
+            toast("Moved " + plural(c, "person", "people") + " to " + to);
           }
         }
 
@@ -2051,6 +3459,31 @@
           localStorage.setItem(LS_TR_OPEN, transfersExpanded ? "1" : "0");
           renderTransfers();
         });
+
+        // One end of a transfer route. Out-of-area ends are prefixed with the
+        // area, muted, so the row reads without ambiguity.
+        function routeName(id) {
+          const b = document.createElement("b");
+          const l = locById(id);
+          if (!l) {
+            b.textContent = "(removed)";
+            return b;
+          }
+          if (isForeign(l)) {
+            const tag = document.createElement("span");
+            tag.className = "area-tag";
+            tag.textContent = l.area + " · ";
+            b.appendChild(tag);
+          }
+          b.appendChild(document.createTextNode(l.name));
+          return b;
+        }
+
+        // Newest first: the log is read to find out what just happened.
+        // Moves from before timestamps existed sort to the bottom.
+        function orderedTransfers() {
+          return transfers.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+        }
 
         function renderTransfers() {
           if (transfers.length === 0) {
@@ -2064,19 +3497,28 @@
           $transfers.style.display = transfersExpanded ? "" : "none";
           $transfers.innerHTML = "";
           if (!transfersExpanded) return;
-          for (const t of transfers) {
+          for (const t of orderedTransfers()) {
             const row = document.createElement("div");
             row.className = "transfer";
 
+            const when = document.createElement("span");
+            when.className = "tr-time";
+            if (t.at) {
+              const d = new Date(t.at);
+              when.textContent = hhmm(d);
+              when.title = d.toLocaleString();
+            } else {
+              when.textContent = "—";
+              when.title = "Moved before the log kept times";
+            }
+
             const route = document.createElement("div");
             route.className = "route";
-            const f = document.createElement("b");
-            f.textContent = nameOf(t.from);
+            const f = routeName(t.from);
             const via = document.createElement("span");
             via.className = "via";
             via.textContent = "→";
-            const to = document.createElement("b");
-            to.textContent = nameOf(t.to);
+            const to = routeName(t.to);
             route.appendChild(f);
             route.appendChild(via);
             route.appendChild(to);
@@ -2091,11 +3533,21 @@
             del.innerHTML = "&times;";
             del.title = "Undo transfer";
             del.addEventListener("click", () => {
+              const idx = transfers.indexOf(t);
               transfers = transfers.filter((x) => x.id !== t.id);
               saveTransfers();
               render();
+              toast("Sent " + plural(t.count, "person", "people") + " back", {
+                label: "Restore",
+                action: () => {
+                  transfers.splice(Math.min(idx, transfers.length), 0, t);
+                  saveTransfers();
+                  render();
+                },
+              });
             });
 
+            row.appendChild(when);
             row.appendChild(route);
             row.appendChild(cnt);
             row.appendChild(del);
@@ -2154,11 +3606,21 @@
           arrow.textContent = "→";
 
           const select = document.createElement("select");
-          for (const loc of locations) {
-            const o = document.createElement("option");
-            o.value = String(loc.id);
-            o.textContent = loc.name;
-            select.appendChild(o);
+          // Your own locations sit at the top level; other areas get an
+          // optgroup, so a team can be lent out without leaving this row.
+          for (const area of areaList()) {
+            const inArea = locations.filter((l) => l.area === area);
+            if (inArea.length === 0) continue;
+            const own = area === myArea;
+            const parent = own ? select : document.createElement("optgroup");
+            if (!own) parent.label = area;
+            for (const loc of inArea) {
+              const o = document.createElement("option");
+              o.value = String(loc.id);
+              o.textContent = loc.name;
+              parent.appendChild(o);
+            }
+            if (!own) select.appendChild(parent);
           }
           const standbyOpt = document.createElement("option");
           standbyOpt.value = "standby";
@@ -2169,7 +3631,7 @@
             tm.location =
               select.value === "standby" ? null : parseInt(select.value, 10);
             saveTeams();
-            refreshComputed();
+            render();
           });
 
           const del = document.createElement("button");
@@ -2177,9 +3639,17 @@
           del.innerHTML = "&times;";
           del.title = "Remove team";
           del.addEventListener("click", () => {
+            const idx = teams.indexOf(tm);
             teams = teams.filter((x) => x.id !== tm.id);
             saveTeams();
             render();
+            toast("Removed standby team", {
+              action: () => {
+                teams.splice(Math.min(idx, teams.length), 0, tm);
+                saveTeams();
+                render();
+              },
+            });
           });
 
           row.appendChild(size);
@@ -2190,7 +3660,7 @@
           return row;
         }
 
-        /* ---------- Adding locations ---------- */
+        /* ---------- Adding and duplicating locations ---------- */
 
         function addLocation() {
           const nm = $newName.value.trim();
@@ -2198,14 +3668,68 @@
           locations.push({
             id: nextId++,
             name: nm,
+            area: myArea,
             expanded: true,
             manager: "",
             shifts: [],
+            foreign: false,
           });
           $newName.value = "";
           saveLocations();
           render();
           $newName.focus();
+        }
+
+        // "Drinks 1" duplicates to "Drinks 2", then "Drinks 3" — a trailing
+        // number counts up, anything else gains one. Names only have to be
+        // distinct within the area they sit in.
+        function uniqueName(base, area) {
+          const taken = new Set(
+            locations
+              .filter((l) => l.area === area)
+              .map((l) => l.name.trim().toLowerCase()),
+          );
+          const m = /^(.*?)(\d+)\s*$/.exec(base.trim());
+          const stem = m ? m[1] : base.trim() + " ";
+          let n = m ? parseInt(m[2], 10) + 1 : 2;
+          let name = stem + n;
+          while (taken.has(name.trim().toLowerCase()) && n < 999) {
+            n++;
+            name = stem + n;
+          }
+          return name;
+        }
+
+        // Setting up twenty near-identical bars by hand on a phone is the worst
+        // part of the job. The shift skeleton — times and planned numbers —
+        // carries over; actuals start at zero, because nobody is standing at a
+        // location that did not exist a second ago.
+        function duplicateLocation(loc) {
+          const copy = {
+            id: nextId++,
+            name: uniqueName(loc.name, loc.area),
+            area: loc.area,
+            expanded: false,
+            manager: loc.manager,
+            foreign: false,
+            shifts: loc.shifts.map((s) => ({
+              id: sid++,
+              start: s.start,
+              end: s.end,
+              planned: s.planned,
+              actual: 0,
+            })),
+          };
+          locations.splice(locations.indexOf(loc) + 1, 0, copy);
+          saveLocations();
+          render();
+          toast("Added “" + copy.name + "”", {
+            action: () => {
+              locations = locations.filter((l) => l.id !== copy.id);
+              saveLocations();
+              render();
+            },
+          });
         }
 
         $addBtn.addEventListener("click", addLocation);
@@ -2254,6 +3778,49 @@
           );
         });
 
+        /* ---------- Offline and install ---------- */
+
+        // The whole app is one file, so caching the shell is all it takes to
+        // work with no signal — and to install to a home screen. An update is
+        // offered rather than applied: the page must never reload itself out
+        // from under a live count.
+        if (
+          "serviceWorker" in navigator &&
+          location.protocol.startsWith("http")
+        ) {
+          const hadController = !!navigator.serviceWorker.controller;
+          let reloading = false;
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            if (!hadController || reloading) return;
+            reloading = true;
+            location.reload();
+          });
+          window.addEventListener("load", () => {
+            navigator.serviceWorker
+              .register("./sw.js")
+              .then((reg) => {
+                function offer(worker) {
+                  if (!worker || !hadController) return;
+                  toast("A new version is ready.", {
+                    label: "Reload",
+                    ms: Infinity,
+                    action: () => worker.postMessage("SKIP_WAITING"),
+                  });
+                }
+                if (reg.waiting) offer(reg.waiting);
+                reg.addEventListener("updatefound", () => {
+                  const sw = reg.installing;
+                  if (!sw) return;
+                  sw.addEventListener("statechange", () => {
+                    if (sw.state === "installed") offer(reg.waiting || sw);
+                  });
+                });
+              })
+              .catch(() => {});
+          });
+        }
+
+        $search.value = query;
         render();
       })();
     </script>
