@@ -16,6 +16,7 @@
     </script>
     <style>
       :root {
+        color-scheme: light;
         --bg: #f5f6f8;
         --card: #ffffff;
         --border: #e3e6ea;
@@ -28,6 +29,7 @@
       }
       @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) {
+          color-scheme: dark;
           --bg: #16181c;
           --card: #1f2227;
           --border: #2c3036;
@@ -39,6 +41,7 @@
         }
       }
       :root[data-theme="dark"] {
+        color-scheme: dark;
         --bg: #16181c;
         --card: #1f2227;
         --border: #2c3036;
@@ -210,33 +213,110 @@
         border-color: var(--accent);
         color: var(--accent);
       }
-      /* Move form */
-      .move-form {
+      /* Move modal */
+      .move-cols {
         display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 14px 16px;
-        margin-bottom: 16px;
-        box-shadow: var(--shadow);
+        align-items: stretch;
+        gap: 12px;
       }
-      .move-form select {
-        background: var(--bg);
+      .move-col {
+        flex: 1 1 0;
+        min-width: 0;
       }
-      .move-form .arrow {
+      /* Sits between the two columns, pointing from source to destination. */
+      .move-cols .arrow {
+        align-self: center;
         color: var(--muted);
         font-size: 16px;
+        padding-top: 14px;
       }
-      .move-form .mini {
+      .picker {
+        margin-top: 4px;
+        max-height: 216px;
+        overflow-y: auto;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+      .picker-option {
+        width: 100%;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 9px 11px;
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        border-radius: 0;
+        color: var(--text);
+        font: inherit;
+        font-weight: 500;
+        text-align: left;
+      }
+      .picker-option:last-child {
+        border-bottom: 0;
+      }
+      .picker-option:hover {
+        background: var(--card);
+      }
+      .picker-option:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+      /* Listed after :hover, and matching it on specificity, so a hovered
+         selection keeps its accent fill instead of going white-on-white. */
+      .picker-option[aria-pressed="true"],
+      .picker-option[aria-pressed="true"]:hover {
+        background: var(--accent);
+        color: #fff;
+      }
+      .picker-option .nm {
+        overflow-wrap: anywhere;
+        line-height: 1.35;
+      }
+      .picker-option .staff {
+        flex: none;
         font-size: 12px;
+        font-weight: 500;
         color: var(--muted);
       }
-      .move-form .grow {
+      .picker-option[aria-pressed="true"] .staff {
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .picker-label {
+        display: block;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .move-count {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .move-count label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .move-count input {
+        background: var(--bg);
+      }
+      .move-summary {
         flex: 1;
-        min-width: 8px;
+        min-width: 0;
+        font-size: 13px;
+        color: var(--muted);
+        text-align: right;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .btn-confirm {
         background: var(--accent);
@@ -246,19 +326,6 @@
       }
       .btn-confirm:hover {
         opacity: 0.9;
-      }
-      .btn-cancel {
-        background: transparent;
-        color: var(--muted);
-        padding: 9px 12px;
-      }
-      .btn-cancel:hover {
-        color: var(--text);
-      }
-      .move-hint {
-        font-size: 13px;
-        color: var(--muted);
-        padding: 2px 0;
       }
       /* Location cards */
       .locations {
@@ -278,6 +345,16 @@
         align-items: center;
         gap: 14px;
         padding: 14px 16px;
+      }
+      /* Grouping wrappers exist only so the narrow layout can position them;
+         on wide screens they dissolve into the surrounding flex row. */
+      .loc-stats,
+      .loc-actions,
+      .cell {
+        display: contents;
+      }
+      .cell-label {
+        display: none;
       }
       .exp {
         background: transparent;
@@ -313,6 +390,9 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        /* Yields before the manager's name, but never all the way to nothing. */
+        flex: 0 4 auto;
+        min-width: 5em;
       }
       .shift-count {
         font-size: 12px;
@@ -505,7 +585,7 @@
         color: var(--muted);
         font-weight: 500;
         flex: 0 1 auto;
-        min-width: 0;
+        min-width: 2.5em;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -653,11 +733,15 @@
         inset: 0;
         background: rgba(0, 0, 0, 0.45);
         display: flex;
-        align-items: center;
         justify-content: center;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding: 20px;
         z-index: 100;
         animation: modal-fade 0.12s ease-out;
+      }
+      .modal-overlay > * {
+        margin: auto;
       }
       .modal {
         background: var(--card);
@@ -668,6 +752,9 @@
         width: 100%;
         padding: 22px 22px 18px;
         animation: modal-pop 0.13s ease-out;
+      }
+      .modal-wide {
+        max-width: 600px;
       }
       .modal h2 {
         font-size: 17px;
@@ -721,25 +808,279 @@
           transform: translateY(6px) scale(0.98);
         }
       }
-      @media (max-width: 560px) {
-        .loc-head {
+      /* ---------- Narrow screens ---------- */
+      @media (max-width: 760px) {
+        .wrap {
+          padding: 20px 14px 64px;
+        }
+        h1 {
+          font-size: 20px;
+        }
+        header {
+          gap: 10px;
+        }
+        .header-right {
+          flex: 1 1 100%;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        /* Add row: the field takes a full line, the buttons split the next. */
+        .add-row {
           flex-wrap: wrap;
         }
-        .loc-title {
-          flex-basis: 100%;
-          order: -1;
+        .add-row input[type="text"] {
+          flex: 1 1 100%;
         }
+        .add-row .btn-add,
+        .add-row .btn-move {
+          flex: 1 1 0;
+          padding: 11px 12px;
+        }
+
+        /* Location header: name + actions on top, stats on their own row. */
+        .loc-head {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto;
+          grid-template-areas:
+            "exp   title actions"
+            "stats stats stats";
+          align-items: start;
+          column-gap: 10px;
+          row-gap: 0;
+          padding: 12px 14px 0;
+        }
+        /* 20px tall, so the glyph centres on the first line of the name. */
+        .exp {
+          grid-area: exp;
+          width: 24px;
+          height: 20px;
+          margin-left: -4px;
+        }
+        .loc-title {
+          grid-area: title;
+          min-width: 0;
+          gap: 2px;
+        }
+        .loc-title-main {
+          flex-wrap: wrap;
+          gap: 4px 8px;
+        }
+        .loc-name {
+          white-space: normal;
+          overflow: visible;
+          overflow-wrap: anywhere;
+          line-height: 1.3;
+        }
+        .loc-manager {
+          white-space: normal;
+          overflow: visible;
+        }
+        .loc-actions {
+          grid-area: actions;
+          display: flex;
+          align-items: center;
+          gap: 0;
+          margin: -4px -6px 0 0;
+        }
+        .loc-actions .btn-edit,
+        .loc-actions .btn-del {
+          height: 32px;
+          padding: 0 9px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .loc-stats {
+          grid-area: stats;
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+          margin-top: 11px;
+          padding: 11px 0 12px;
+          border-top: 1px solid var(--border);
+        }
+        .loc-stats .field {
+          flex: 1 1 0;
+          min-width: 0;
+          gap: 5px;
+        }
+        .loc-stats .field .val,
+        .loc-stats .diff {
+          width: 100%;
+          min-width: 0;
+          max-width: 130px;
+          height: 32px;
+          padding: 0 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        /* Shifts: one card per shift, with the column header inlined as
+           per-control labels. */
         .shifts {
-          padding-left: 16px;
+          padding: 8px 12px 14px;
+          gap: 10px;
         }
         .shifts-head {
           display: none;
         }
         .shift {
-          flex-wrap: wrap;
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1fr) minmax(0, 1fr)
+            minmax(0, 1fr) auto;
+          grid-template-areas:
+            "times   times  times times"
+            "planned actual diff  del";
+          align-items: end;
+          column-gap: 8px;
+          row-gap: 10px;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 10px;
         }
-        .col-times {
+        .shift .col-times {
+          grid-area: times;
+          width: auto;
+          max-width: 320px;
+          gap: 6px;
+        }
+        .shift .col-times input[type="time"] {
+          padding: 9px 4px;
+          text-align: center;
+        }
+        .shift > .btn-del.col-del {
+          grid-area: del;
+          width: auto;
+          height: 40px;
+          padding: 0 8px;
+          margin-right: -2px;
+          align-self: end;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .shift .cell {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
+          min-width: 0;
+        }
+        .shift .cell-planned {
+          grid-area: planned;
+        }
+        .shift .cell-actual {
+          grid-area: actual;
+        }
+        .shift .cell-diff {
+          grid-area: diff;
+        }
+        .cell-label {
+          display: block;
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--muted);
+          font-weight: 600;
+          line-height: 1.4;
+        }
+        .shift .cell input[type="number"].col-num {
           width: 100%;
+          max-width: 130px;
+          height: 40px;
+          padding: 9px 6px;
+        }
+        .shift .cell .diff {
+          width: 100%;
+          min-width: 0;
+          max-width: 130px;
+          height: 40px;
+          padding: 0 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .btn-shift {
+          padding: 9px 14px;
+        }
+
+        /* Move modal: the two pickers stack, so the arrow steps downward. */
+        .move-cols {
+          flex-direction: column;
+          gap: 10px;
+        }
+        .move-cols .arrow {
+          padding-top: 0;
+          line-height: 1;
+          transform: rotate(90deg);
+        }
+        .picker {
+          max-height: 168px;
+        }
+        .move-count {
+          flex-wrap: wrap;
+          margin-top: 14px;
+        }
+        /* Too little room to sit beside the stepper without truncating. */
+        .move-summary {
+          flex: 1 1 100%;
+          text-align: left;
+          white-space: normal;
+        }
+
+        /* Standby teams: team size on top, destination on its own full-width
+           line below. The arrow that joins the two on one row has nothing left
+           to join, so it goes. */
+        .team {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto;
+          grid-template-areas:
+            "size label del"
+            "loc  loc   loc";
+          align-items: center;
+          column-gap: 8px;
+          row-gap: 10px;
+          padding: 10px 12px;
+        }
+        .team > input[type="number"] {
+          grid-area: size;
+        }
+        .team > .mini {
+          grid-area: label;
+        }
+        .team > .arrow {
+          display: none;
+        }
+        .team .cell-team-loc {
+          grid-area: loc;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+        }
+        .team .cell-team-loc select {
+          width: 100%;
+        }
+        .team > .btn-del {
+          grid-area: del;
+          height: 34px;
+          padding: 0 9px;
+          margin-right: -4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .transfer {
+          gap: 8px;
+          padding: 10px 12px;
+        }
+        .modal-overlay {
+          padding: 14px;
         }
       }
     </style>
@@ -772,7 +1113,6 @@
           <button class="btn-add" id="add-btn">Add</button>
           <button class="btn-move" id="move-btn">Move</button>
         </div>
-        <div id="move-panel"></div>
         <div class="locations" id="locations"></div>
       </section>
 
@@ -812,7 +1152,6 @@
         let sid = 1; // next shift id
         let tid = 1; // next transfer id
         let teamId = 1; // next standby team id
-        let moveOpen = false;
         let transfersExpanded = localStorage.getItem(LS_TR_OPEN) !== "0";
 
         migrate();
@@ -822,7 +1161,6 @@
         const $newName = document.getElementById("new-name");
         const $addBtn = document.getElementById("add-btn");
         const $moveBtn = document.getElementById("move-btn");
-        const $movePanel = document.getElementById("move-panel");
         const $transfersSection = document.getElementById("transfers-section");
         const $transfersToggle = document.getElementById("transfers-toggle");
         const $transfersChevron = document.getElementById("transfers-chevron");
@@ -944,6 +1282,16 @@
           return n;
         }
 
+        // Headcount actually standing at a location: rostered, adjusted for
+        // transfers in/out, plus any standby team parked there.
+        function effectiveActual(loc) {
+          return (
+            shiftTotals(loc).actual +
+            netTransfer(loc.id) +
+            standbyForLocation(loc.id)
+          );
+        }
+
         function diffInfo(planned, actual) {
           const d = actual - planned;
           if (d < 0) return { cls: "under", label: String(d) };
@@ -1031,7 +1379,6 @@
           refreshComputed();
           renderTransfers();
           renderTeams();
-          if (moveOpen) renderMovePanel();
         }
 
         function renderLoc(loc) {
@@ -1137,13 +1484,24 @@
             render();
           });
 
+          // Stats and actions are grouped so the narrow layout can move them
+          // around as blocks; on wide screens both wrappers are
+          // `display: contents`, so the head stays one flat flex row.
+          const stats = document.createElement("div");
+          stats.className = "loc-stats";
+          stats.appendChild(plannedField.wrap);
+          stats.appendChild(actualField.wrap);
+          stats.appendChild(diffWrap);
+
+          const actions = document.createElement("div");
+          actions.className = "loc-actions";
+          actions.appendChild(editBtn);
+          actions.appendChild(del);
+
           head.appendChild(exp);
           head.appendChild(title);
-          head.appendChild(plannedField.wrap);
-          head.appendChild(actualField.wrap);
-          head.appendChild(diffWrap);
-          head.appendChild(editBtn);
-          head.appendChild(del);
+          head.appendChild(stats);
+          head.appendChild(actions);
           card.appendChild(head);
 
           refs.locs[loc.id] = {
@@ -1368,13 +1726,28 @@
           });
 
           row.appendChild(times);
-          row.appendChild(planned);
-          row.appendChild(actual);
-          row.appendChild(diff);
+          row.appendChild(labelledCell("planned", "Planned", planned));
+          row.appendChild(labelledCell("actual", "Actual", actual));
+          row.appendChild(labelledCell("diff", "Diff", diff));
           row.appendChild(del);
 
           refs.shifts[s.id] = diff;
           return row;
+        }
+
+        // Pairs a control with a label that only shows on narrow screens, where
+        // the shared column header is hidden. Form controls get a <label>, so the
+        // text also becomes their accessible name.
+        function labelledCell(name, labelText, control) {
+          const form = control.tagName === "INPUT" || control.tagName === "SELECT";
+          const cell = document.createElement(form ? "label" : "div");
+          cell.className = "cell cell-" + name;
+          const label = document.createElement("span");
+          label.className = "cell-label";
+          label.textContent = labelText;
+          cell.appendChild(label);
+          cell.appendChild(control);
+          return cell;
         }
 
         function timeInput(value, onChange) {
@@ -1406,7 +1779,7 @@
             const t = shiftTotals(loc);
             const net = netTransfer(loc.id);
             const standby = standbyForLocation(loc.id);
-            const actual = t.actual + net + standby;
+            const actual = effectiveActual(loc);
             gp += t.planned;
             ga += actual;
 
@@ -1493,109 +1866,184 @@
 
         /* ---------- Move / transfers ---------- */
 
-        $moveBtn.addEventListener("click", () => {
-          moveOpen = !moveOpen;
-          $moveBtn.classList.toggle("active", moveOpen);
-          renderMovePanel();
-        });
+        $moveBtn.addEventListener("click", moveModal);
 
-        function renderMovePanel() {
-          $movePanel.innerHTML = "";
-          if (!moveOpen) return;
+        function moveModal() {
+          const prevFocus = document.activeElement;
+          const overlay = document.createElement("div");
+          overlay.className = "modal-overlay";
+          const modal = document.createElement("div");
+          modal.className = "modal modal-wide";
+          modal.setAttribute("role", "dialog");
+          modal.setAttribute("aria-modal", "true");
+          modal.setAttribute("aria-label", "Move people");
+
+          const h = document.createElement("h2");
+          h.textContent = "Move people";
+          modal.appendChild(h);
+
+          function close() {
+            document.removeEventListener("keydown", onKey);
+            overlay.remove();
+            if (prevFocus && prevFocus.focus) prevFocus.focus();
+          }
+          function onKey(e) {
+            if (e.key === "Escape") close();
+            else if (e.key === "Enter") commit();
+          }
 
           if (locations.length < 2) {
-            const hint = document.createElement("div");
-            hint.className = "move-form";
-            const t = document.createElement("span");
-            t.className = "move-hint";
-            t.textContent =
+            const msg = document.createElement("p");
+            msg.textContent =
               "Add at least two locations to move people between them.";
-            hint.appendChild(t);
-            $movePanel.appendChild(hint);
+            modal.appendChild(msg);
+            const actions = document.createElement("div");
+            actions.className = "modal-actions";
+            const ok = document.createElement("button");
+            ok.className = "btn-ghost";
+            ok.textContent = "Close";
+            ok.addEventListener("click", close);
+            actions.appendChild(ok);
+            modal.appendChild(actions);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            ok.focus();
+            overlay.addEventListener("click", (e) => {
+              if (e.target === overlay) close();
+            });
+            document.addEventListener("keydown", onKey);
             return;
           }
 
-          const form = document.createElement("div");
-          form.className = "move-form";
+          let fromId = locations[0].id;
+          let toId = locations[1].id;
 
-          const fromLabel = document.createElement("span");
-          fromLabel.className = "mini";
-          fromLabel.textContent = "Move";
+          const cols = document.createElement("div");
+          cols.className = "move-cols";
+          const fromCol = picker("From", () => fromId, (id) => {
+            // Picking the location already on the other side swaps the ends,
+            // which keeps every option live instead of greying one out.
+            if (id === toId) toId = fromId;
+            fromId = id;
+            refresh();
+          });
+          const arrow = document.createElement("span");
+          arrow.className = "arrow";
+          arrow.textContent = "\u2192";
+          const toCol = picker("To", () => toId, (id) => {
+            if (id === fromId) fromId = toId;
+            toId = id;
+            refresh();
+          });
+          cols.appendChild(fromCol.col);
+          cols.appendChild(arrow);
+          cols.appendChild(toCol.col);
+          modal.appendChild(cols);
 
+          const countRow = document.createElement("div");
+          countRow.className = "move-count";
+          const countLabel = document.createElement("label");
+          countLabel.textContent = "People";
           const count = document.createElement("input");
           count.type = "number";
           count.min = "1";
           count.value = "1";
+          count.id = "move-count";
+          countLabel.htmlFor = count.id;
+          const summary = document.createElement("span");
+          summary.className = "move-summary";
+          count.addEventListener("input", refresh);
+          countRow.appendChild(countLabel);
+          countRow.appendChild(count);
+          countRow.appendChild(summary);
+          modal.appendChild(countRow);
 
-          const peopleLabel = document.createElement("span");
-          peopleLabel.className = "mini";
-          peopleLabel.textContent = "from";
-
-          const from = document.createElement("select");
-          const to = document.createElement("select");
-          fillSelect(from, null);
-          from.value = String(locations[0].id);
-          fillSelect(to, locations[0].id);
-
-          const arrow = document.createElement("span");
-          arrow.className = "arrow";
-          arrow.textContent = "→";
-
-          from.addEventListener("change", () =>
-            fillSelect(to, parseInt(from.value, 10)),
-          );
-
-          const grow = document.createElement("span");
-          grow.className = "grow";
-
+          const actions = document.createElement("div");
+          actions.className = "modal-actions";
+          const cancel = document.createElement("button");
+          cancel.className = "btn-ghost";
+          cancel.textContent = "Cancel";
           const confirm = document.createElement("button");
           confirm.className = "btn-confirm";
           confirm.textContent = "Move";
-          confirm.addEventListener("click", () => {
-            const f = parseInt(from.value, 10);
-            const tt = parseInt(to.value, 10);
-            const c = Math.max(1, parseInt(count.value, 10) || 0);
-            if (!locById(f) || !locById(tt) || f === tt) return;
-            transfers.push({ id: tid++, from: f, to: tt, count: c });
-            saveTransfers();
-            moveOpen = false;
-            $moveBtn.classList.remove("active");
-            render();
+          actions.appendChild(cancel);
+          actions.appendChild(confirm);
+          modal.appendChild(actions);
+
+          overlay.appendChild(modal);
+          document.body.appendChild(overlay);
+          refresh();
+          count.focus({ preventScroll: true });
+          count.select();
+          overlay.scrollTop = 0;
+
+          cancel.addEventListener("click", close);
+          confirm.addEventListener("click", commit);
+          overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) close();
           });
+          document.addEventListener("keydown", onKey);
 
-          const cancel = document.createElement("button");
-          cancel.className = "btn-cancel";
-          cancel.textContent = "Cancel";
-          cancel.addEventListener("click", () => {
-            moveOpen = false;
-            $moveBtn.classList.remove("active");
-            renderMovePanel();
-          });
+          // A labelled, scrollable list of locations. Showing each one's current
+          // headcount is the point of picking here rather than in a dropdown.
+          function picker(labelText, getSelected, onPick) {
+            const col = document.createElement("div");
+            col.className = "move-col";
+            const label = document.createElement("span");
+            label.className = "picker-label";
+            label.textContent = labelText;
+            const list = document.createElement("div");
+            list.className = "picker";
+            list.setAttribute("role", "group");
+            list.setAttribute("aria-label", labelText);
+            col.appendChild(label);
+            col.appendChild(list);
 
-          form.appendChild(fromLabel);
-          form.appendChild(count);
-          form.appendChild(peopleLabel);
-          form.appendChild(from);
-          form.appendChild(arrow);
-          form.appendChild(to);
-          form.appendChild(grow);
-          form.appendChild(confirm);
-          form.appendChild(cancel);
-          $movePanel.appendChild(form);
-        }
-
-        function fillSelect(sel, excludeId) {
-          const prev = sel.value;
-          sel.innerHTML = "";
-          for (const loc of locations) {
-            if (loc.id === excludeId) continue;
-            const o = document.createElement("option");
-            o.value = String(loc.id);
-            o.textContent = loc.name;
-            sel.appendChild(o);
+            function draw() {
+              list.innerHTML = "";
+              for (const loc of locations) {
+                const opt = document.createElement("button");
+                opt.type = "button";
+                opt.className = "picker-option";
+                const nm = document.createElement("span");
+                nm.className = "nm";
+                nm.textContent = loc.name;
+                const staff = document.createElement("span");
+                staff.className = "staff";
+                staff.textContent = effectiveActual(loc) + " staffed";
+                opt.appendChild(nm);
+                opt.appendChild(staff);
+                opt.setAttribute(
+                  "aria-pressed",
+                  loc.id === getSelected() ? "true" : "false",
+                );
+                opt.addEventListener("click", () => onPick(loc.id));
+                list.appendChild(opt);
+              }
+            }
+            return { col, draw };
           }
-          if (prev && [...sel.options].some((o) => o.value === prev))
-            sel.value = prev;
+
+          function refresh() {
+            fromCol.draw();
+            toCol.draw();
+            const c = Math.max(1, parseInt(count.value, 10) || 0);
+            summary.textContent =
+              c +
+              (c === 1 ? " person from " : " people from ") +
+              nameOf(fromId) +
+              " to " +
+              nameOf(toId);
+          }
+
+          function commit() {
+            const c = Math.max(1, parseInt(count.value, 10) || 0);
+            if (!locById(fromId) || !locById(toId) || fromId === toId) return;
+            transfers.push({ id: tid++, from: fromId, to: toId, count: c });
+            saveTransfers();
+            close();
+            render();
+          }
         }
 
         $transfersToggle.addEventListener("click", () => {
@@ -1689,6 +2137,8 @@
           size.type = "number";
           size.min = "0";
           size.value = tm.size;
+          // The adjacent "employees" text reads as its label but isn't one.
+          size.setAttribute("aria-label", "Employees");
           size.addEventListener("input", () => {
             tm.size = Math.max(0, parseInt(size.value, 10) || 0);
             saveTeams();
@@ -1735,7 +2185,7 @@
           row.appendChild(size);
           row.appendChild(label);
           row.appendChild(arrow);
-          row.appendChild(select);
+          row.appendChild(labelledCell("team-loc", "Assigned to", select));
           row.appendChild(del);
           return row;
         }
