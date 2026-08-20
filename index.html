@@ -1,963 +1,1811 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Field Manager</title>
-<script>
-  /* Apply saved theme before first paint to avoid a flash. */
-  (function () {
-    try {
-      var t = localStorage.getItem("fieldmanager.theme.v1");
-      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-    } catch (e) {}
-  })();
-</script>
-<style>
-  :root {
-    --bg: #f5f6f8;
-    --card: #ffffff;
-    --border: #e3e6ea;
-    --text: #1c1f23;
-    --muted: #6b7280;
-    --accent: #2563eb;
-    --ok: #16a34a;
-    --under: #dc2626;
-    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #16181c;
-      --card: #1f2227;
-      --border: #2c3036;
-      --text: #e8eaed;
-      --muted: #9aa0a6;
-      --accent: #3b82f6;
-      --ok: #22c55e;
-      --shadow: 0 1px 3px rgba(0,0,0,.4);
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #16181c;
-    --card: #1f2227;
-    --border: #2c3036;
-    --text: #e8eaed;
-    --muted: #9aa0a6;
-    --accent: #3b82f6;
-    --ok: #22c55e;
-    --shadow: 0 1px 3px rgba(0,0,0,.4);
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap {
-    max-width: 780px;
-    margin: 0 auto;
-    padding: 32px 20px 80px;
-  }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-  }
-  .header-right { display: flex; align-items: center; gap: 14px; }
-  .theme-btn {
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--text);
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    font-size: 16px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-  }
-  .theme-btn:hover { border-color: var(--accent); }
-  h1 {
-    font-size: 22px;
-    font-weight: 650;
-    margin: 0;
-    letter-spacing: -.01em;
-  }
-  .summary { font-size: 13px; color: var(--muted); }
-  .summary b { color: var(--text); font-weight: 600; }
-  section { margin-top: 28px; }
-  .section-title {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    color: var(--muted);
-    margin: 0 0 12px 2px;
-  }
-  .tr-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-  .tr-chevron { font-size: 10px; color: var(--muted); }
-  .tr-count { text-transform: none; letter-spacing: 0; font-weight: 500; }
-  /* Add / toolbar */
-  .add-row { display: flex; gap: 8px; margin-bottom: 16px; }
-  .add-row input[type="text"] { flex: 1; }
-  input[type="text"], input[type="number"], input[type="time"], select {
-    font: inherit;
-    color: var(--text);
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 11px;
-    outline: none;
-    transition: border-color .12s;
-  }
-  input:focus, select:focus { border-color: var(--accent); }
-  input[type="number"] {
-    width: 62px;
-    text-align: center;
-    -moz-appearance: textfield;
-  }
-  input[type="number"]::-webkit-outer-spin-button,
-  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  button {
-    font: inherit;
-    cursor: pointer;
-    border: none;
-    border-radius: 8px;
-    transition: background .12s, opacity .12s, border-color .12s, color .12s;
-  }
-  .btn-add {
-    background: var(--accent);
-    color: #fff;
-    font-weight: 550;
-    padding: 9px 18px;
-    white-space: nowrap;
-  }
-  .btn-add:hover { opacity: .9; }
-  .btn-move {
-    background: var(--card);
-    color: var(--text);
-    font-weight: 550;
-    padding: 9px 16px;
-    border: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  .btn-move:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-move.active { border-color: var(--accent); color: var(--accent); }
-  /* Move form */
-  .move-form {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-    box-shadow: var(--shadow);
-  }
-  .move-form select { background: var(--bg); }
-  .move-form .arrow { color: var(--muted); font-size: 16px; }
-  .move-form .mini { font-size: 12px; color: var(--muted); }
-  .move-form .grow { flex: 1; min-width: 8px; }
-  .btn-confirm {
-    background: var(--accent);
-    color: #fff;
-    font-weight: 550;
-    padding: 9px 16px;
-  }
-  .btn-confirm:hover { opacity: .9; }
-  .btn-cancel {
-    background: transparent;
-    color: var(--muted);
-    padding: 9px 12px;
-  }
-  .btn-cancel:hover { color: var(--text); }
-  .move-hint { font-size: 13px; color: var(--muted); padding: 2px 0; }
-  /* Location cards */
-  .locations { display: flex; flex-direction: column; gap: 10px; }
-  .loc {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
-  }
-  .loc-head { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
-  .exp {
-    background: transparent;
-    color: var(--muted);
-    font-size: 12px;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    flex: none;
-  }
-  .loc-title {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-  }
-  .loc-name {
-    font-weight: 550;
-    font-size: 15px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .shift-count { font-size: 12px; color: var(--muted); font-weight: 500; flex: none; }
-  .loan {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 999px;
-    flex: none;
-    white-space: nowrap;
-  }
-  .loan.in  { color: var(--ok);    background: color-mix(in srgb, var(--ok) 14%, transparent); }
-  .loan.out { color: var(--under); background: color-mix(in srgb, var(--under) 14%, transparent); }
-  .field { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
-  .field label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: var(--muted);
-    font-weight: 600;
-  }
-  .field .val { font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
-  .diff {
-    min-width: 54px;
-    text-align: center;
-    font-weight: 700;
-    font-size: 15px;
-    font-variant-numeric: tabular-nums;
-    padding: 6px 8px;
-    border-radius: 8px;
-  }
-  .diff.matched { color: var(--text);  background: color-mix(in srgb, var(--muted) 16%, transparent); }
-  .diff.under   { color: var(--under); background: color-mix(in srgb, var(--under) 12%, transparent); }
-  .diff.over    { color: var(--ok);    background: color-mix(in srgb, var(--ok) 12%, transparent); }
-  .btn-del {
-    background: transparent;
-    color: var(--muted);
-    font-size: 18px;
-    line-height: 1;
-    padding: 6px 8px;
-    border-radius: 6px;
-    flex: none;
-  }
-  .btn-del:hover { color: var(--under); background: color-mix(in srgb, var(--under) 12%, transparent); }
-  /* Shifts panel */
-  .shifts {
-    padding: 4px 16px 16px 50px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    border-top: 1px solid var(--border);
-    margin-top: 2px;
-  }
-  .shifts-head, .shift { display: flex; gap: 10px; align-items: center; }
-  .shifts-head {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: var(--muted);
-    font-weight: 600;
-    padding-top: 10px;
-  }
-  .col-times { width: 200px; flex: none; display: flex; align-items: center; gap: 4px; }
-  .col-times input[type="time"] { flex: 1; min-width: 0; padding: 8px 6px; }
-  .dash { color: var(--muted); flex: none; }
-  .col-num { width: 62px; flex: none; text-align: center; }
-  input[type="number"].col-num { width: 62px; }
-  .col-diff { width: 56px; flex: none; min-width: 0; }
-  .shifts-head .col-diff { text-align: center; }
-  .col-del { width: 34px; flex: none; }
-  .btn-shift {
-    align-self: flex-start;
-    background: transparent;
-    color: var(--accent);
-    font-weight: 550;
-    padding: 7px 12px;
-    border: 1px dashed var(--border);
-    border-radius: 8px;
-    font-size: 13px;
-    margin-top: 2px;
-  }
-  .btn-shift:hover { border-color: var(--accent); }
-  .no-shifts { font-size: 13px; color: var(--muted); padding: 8px 0 2px; }
-  .empty {
-    text-align: center;
-    color: var(--muted);
-    font-size: 14px;
-    padding: 28px 0;
-    border: 1px dashed var(--border);
-    border-radius: 12px;
-  }
-  /* Transfers list */
-  .transfers { display: flex; flex-direction: column; gap: 8px; }
-  .transfer {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    box-shadow: var(--shadow);
-  }
-  .transfer .route { flex: 1; font-size: 14px; min-width: 0; }
-  .transfer .route b { font-weight: 600; }
-  .transfer .route .via { color: var(--muted); margin: 0 6px; }
-  .transfer .cnt {
-    font-size: 13px;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .transfer .cnt b { color: var(--text); font-weight: 600; }
-  /* Notes */
-  textarea {
-    width: 100%;
-    min-height: 160px;
-    font: inherit;
-    color: var(--text);
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 16px;
-    outline: none;
-    resize: vertical;
-    box-shadow: var(--shadow);
-    transition: border-color .12s;
-  }
-  textarea:focus { border-color: var(--accent); }
-  @media (max-width: 560px) {
-    .loc-head { flex-wrap: wrap; }
-    .loc-title { flex-basis: 100%; order: -1; }
-    .shifts { padding-left: 16px; }
-    .shifts-head { display: none; }
-    .shift { flex-wrap: wrap; }
-    .col-times { width: 100%; }
-  }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <h1>Field Manager</h1>
-    <div class="header-right">
-      <div class="summary" id="summary"></div>
-      <button class="theme-btn" id="theme-btn" aria-label="Toggle color theme">☀</button>
-    </div>
-  </header>
-
-  <section>
-    <p class="section-title">Locations</p>
-    <div class="add-row">
-      <input type="text" id="new-name" placeholder="Add a location (e.g. Drinks 1, Speciaalbierbar)" autocomplete="off">
-      <button class="btn-add" id="add-btn">Add</button>
-      <button class="btn-move" id="move-btn">Move</button>
-    </div>
-    <div id="move-panel"></div>
-    <div class="locations" id="locations"></div>
-  </section>
-
-  <section id="transfers-section" style="display:none">
-    <p class="section-title tr-toggle" id="transfers-toggle">
-      <span class="tr-chevron" id="transfers-chevron">▾</span>
-      Transfers <span class="tr-count" id="transfers-count"></span>
-    </p>
-    <div class="transfers" id="transfers"></div>
-  </section>
-
-  <section>
-    <p class="section-title">Notes</p>
-    <textarea id="notes" placeholder="Notes for yourself…"></textarea>
-  </section>
-</div>
-
-<script>
-(function () {
-  "use strict";
-  const LS_LOC = "fieldmanager.locations.v1";
-  const LS_TRANSFERS = "fieldmanager.transfers.v1";
-  const LS_TR_OPEN = "fieldmanager.transfersOpen.v1";
-  const LS_THEME = "fieldmanager.theme.v1";
-  const LS_NOTES = "fieldmanager.notes.v1";
-
-  let locations = load(LS_LOC, []);
-  let transfers = load(LS_TRANSFERS, []);
-  let nextId = 1;   // next location id
-  let sid = 1;      // next shift id
-  let tid = 1;      // next transfer id
-  let moveOpen = false;
-  let transfersExpanded = localStorage.getItem(LS_TR_OPEN) !== "0";
-
-  migrate();
-
-  const $locations = document.getElementById("locations");
-  const $summary = document.getElementById("summary");
-  const $newName = document.getElementById("new-name");
-  const $addBtn = document.getElementById("add-btn");
-  const $moveBtn = document.getElementById("move-btn");
-  const $movePanel = document.getElementById("move-panel");
-  const $transfersSection = document.getElementById("transfers-section");
-  const $transfersToggle = document.getElementById("transfers-toggle");
-  const $transfersChevron = document.getElementById("transfers-chevron");
-  const $transfersCount = document.getElementById("transfers-count");
-  const $transfers = document.getElementById("transfers");
-  const $notes = document.getElementById("notes");
-  const $themeBtn = document.getElementById("theme-btn");
-
-  let refs = { locs: {}, shifts: {} };
-
-  function load(key, fallback) {
-    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
-    catch (e) { return fallback; }
-  }
-  function saveLocations() { localStorage.setItem(LS_LOC, JSON.stringify(locations)); }
-  function saveTransfers() { localStorage.setItem(LS_TRANSFERS, JSON.stringify(transfers)); }
-
-  // Bring older/loose data into the current shape.
-  function migrate() {
-    if (!Array.isArray(locations)) locations = [];
-    if (!Array.isArray(transfers)) transfers = [];
-    let maxLoc = 0, maxShift = 0, maxTr = 0;
-    for (const loc of locations) {
-      if (typeof loc.id !== "number") loc.id = maxLoc + 1;
-      maxLoc = Math.max(maxLoc, loc.id);
-      if (typeof loc.expanded !== "boolean") loc.expanded = false;
-      if (!Array.isArray(loc.shifts)) {
-        const p = loc.planned || 0, a = loc.actual || 0;
-        loc.shifts = (p || a) ? [{ id: 0, start: "", end: "", planned: p, actual: a }] : [];
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Field Manager</title>
+    <script>
+      /* Apply saved theme before first paint to avoid a flash. */
+      (function () {
+        try {
+          var t = localStorage.getItem("fieldmanager.theme.v1");
+          if (t === "light" || t === "dark")
+            document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      :root {
+        --bg: #f5f6f8;
+        --card: #ffffff;
+        --border: #e3e6ea;
+        --text: #1c1f23;
+        --muted: #6b7280;
+        --accent: #2563eb;
+        --ok: #16a34a;
+        --under: #dc2626;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
       }
-      delete loc.planned; delete loc.actual;
-      for (const s of loc.shifts) maxShift = Math.max(maxShift, s.id || 0);
-    }
-    for (const t of transfers) maxTr = Math.max(maxTr, t.id || 0);
-    nextId = maxLoc + 1;
-    sid = maxShift + 1;
-    tid = maxTr + 1;
-    for (const loc of locations)
-      for (const s of loc.shifts)
-        if (!s.id) s.id = sid++;
-    // Drop transfers that reference a location that no longer exists.
-    const ids = new Set(locations.map(l => l.id));
-    transfers = transfers.filter(t => ids.has(t.from) && ids.has(t.to));
-  }
-
-  function locById(id) { return locations.find(l => l.id === id); }
-  function nameOf(id) { const l = locById(id); return l ? l.name : "(removed)"; }
-
-  function shiftTotals(loc) {
-    return loc.shifts.reduce(
-      (a, s) => ({ planned: a.planned + s.planned, actual: a.actual + s.actual }),
-      { planned: 0, actual: 0 }
-    );
-  }
-
-  // People borrowed in (positive) minus people loaned out (negative).
-  function netTransfer(locId) {
-    let n = 0;
-    for (const t of transfers) {
-      if (t.to === locId) n += t.count;
-      if (t.from === locId) n -= t.count;
-    }
-    return n;
-  }
-
-  function diffInfo(planned, actual) {
-    const d = actual - planned;
-    if (d < 0) return { cls: "under", label: String(d) };
-    if (d > 0) return { cls: "over", label: "+" + d };
-    return { cls: "matched", label: "0" };
-  }
-
-  function setDiff(el, planned, actual) {
-    const info = diffInfo(planned, actual);
-    const isCol = el.classList.contains("col-diff");
-    el.className = "diff " + info.cls + (isCol ? " col-diff" : "");
-    el.textContent = info.label;
-  }
-
-  /* ---------- Render locations ---------- */
-
-  function render() {
-    $locations.innerHTML = "";
-    refs = { locs: {}, shifts: {} };
-
-    if (locations.length === 0) {
-      const e = document.createElement("div");
-      e.className = "empty";
-      e.textContent = "No locations yet. Add one above to get started.";
-      $locations.appendChild(e);
-    } else {
-      for (const loc of locations) $locations.appendChild(renderLoc(loc));
-    }
-
-    refreshComputed();
-    renderTransfers();
-    if (moveOpen) renderMovePanel();
-  }
-
-  function renderLoc(loc) {
-    const card = document.createElement("div");
-    card.className = "loc";
-
-    const head = document.createElement("div");
-    head.className = "loc-head";
-
-    const exp = document.createElement("button");
-    exp.className = "exp";
-    exp.textContent = loc.expanded ? "▾" : "▸";
-    exp.title = loc.expanded ? "Collapse" : "Expand";
-
-    const title = document.createElement("div");
-    title.className = "loc-title";
-    const name = document.createElement("span");
-    name.className = "loc-name";
-    name.textContent = loc.name;
-    name.title = loc.name;
-    const count = document.createElement("span");
-    count.className = "shift-count";
-    const loan = document.createElement("span");
-    loan.className = "loan";
-    loan.style.display = "none";
-    title.appendChild(name);
-    title.appendChild(count);
-    title.appendChild(loan);
-
-    const toggle = () => { loc.expanded = !loc.expanded; saveLocations(); render(); };
-    exp.addEventListener("click", toggle);
-    title.addEventListener("click", toggle);
-
-    const plannedField = statField("Planned");
-    const actualField = statField("Actual");
-
-    const diffWrap = document.createElement("div");
-    diffWrap.className = "field";
-    const diffLabel = document.createElement("label");
-    diffLabel.textContent = "Diff";
-    const diffVal = document.createElement("div");
-    diffVal.className = "diff";
-    diffWrap.appendChild(diffLabel);
-    diffWrap.appendChild(diffVal);
-
-    const del = document.createElement("button");
-    del.className = "btn-del";
-    del.innerHTML = "&times;";
-    del.title = "Remove location";
-    del.setAttribute("aria-label", "Remove " + loc.name);
-    del.addEventListener("click", () => {
-      locations = locations.filter(l => l.id !== loc.id);
-      transfers = transfers.filter(t => t.from !== loc.id && t.to !== loc.id);
-      saveLocations();
-      saveTransfers();
-      render();
-    });
-
-    head.appendChild(exp);
-    head.appendChild(title);
-    head.appendChild(plannedField.wrap);
-    head.appendChild(actualField.wrap);
-    head.appendChild(diffWrap);
-    head.appendChild(del);
-    card.appendChild(head);
-
-    refs.locs[loc.id] = {
-      planned: plannedField.val,
-      actual: actualField.val,
-      diff: diffVal,
-      count: count,
-      loan: loan
-    };
-
-    if (loc.expanded) card.appendChild(renderShifts(loc));
-    return card;
-  }
-
-  function statField(labelText) {
-    const wrap = document.createElement("div");
-    wrap.className = "field";
-    const label = document.createElement("label");
-    label.textContent = labelText;
-    const val = document.createElement("span");
-    val.className = "val";
-    val.textContent = "0";
-    wrap.appendChild(label);
-    wrap.appendChild(val);
-    return { wrap, val };
-  }
-
-  function renderShifts(loc) {
-    const panel = document.createElement("div");
-    panel.className = "shifts";
-
-    if (loc.shifts.length > 0) {
-      const headRow = document.createElement("div");
-      headRow.className = "shifts-head";
-      headRow.innerHTML =
-        '<span class="col-times">Shift</span>' +
-        '<span class="col-num">Planned</span>' +
-        '<span class="col-num">Actual</span>' +
-        '<span class="col-diff">Diff</span>' +
-        '<span class="col-del"></span>';
-      panel.appendChild(headRow);
-      for (const s of loc.shifts) panel.appendChild(renderShift(loc, s));
-    } else {
-      const none = document.createElement("div");
-      none.className = "no-shifts";
-      none.textContent = "No shifts yet.";
-      panel.appendChild(none);
-    }
-
-    const add = document.createElement("button");
-    add.className = "btn-shift";
-    add.textContent = "+ Add shift";
-    add.addEventListener("click", () => {
-      loc.shifts.push({ id: sid++, start: "", end: "", planned: 0, actual: 0 });
-      saveLocations();
-      render();
-    });
-    panel.appendChild(add);
-    return panel;
-  }
-
-  function renderShift(loc, s) {
-    const row = document.createElement("div");
-    row.className = "shift";
-
-    const times = document.createElement("div");
-    times.className = "col-times";
-    const start = timeInput(s.start, v => { s.start = v; saveLocations(); });
-    const dash = document.createElement("span");
-    dash.className = "dash";
-    dash.textContent = "–";
-    const end = timeInput(s.end, v => { s.end = v; saveLocations(); });
-    times.appendChild(start);
-    times.appendChild(dash);
-    times.appendChild(end);
-
-    const planned = numInput(s.planned, v => { s.planned = v; saveLocations(); refreshComputed(); });
-    const actual = numInput(s.actual, v => { s.actual = v; saveLocations(); refreshComputed(); });
-
-    const diff = document.createElement("div");
-    diff.className = "diff col-diff";
-
-    const del = document.createElement("button");
-    del.className = "btn-del col-del";
-    del.innerHTML = "&times;";
-    del.title = "Remove shift";
-    del.addEventListener("click", () => {
-      loc.shifts = loc.shifts.filter(x => x.id !== s.id);
-      saveLocations();
-      render();
-    });
-
-    row.appendChild(times);
-    row.appendChild(planned);
-    row.appendChild(actual);
-    row.appendChild(diff);
-    row.appendChild(del);
-
-    refs.shifts[s.id] = diff;
-    return row;
-  }
-
-  function timeInput(value, onChange) {
-    const input = document.createElement("input");
-    input.type = "time";
-    input.value = value || "";
-    input.addEventListener("change", () => onChange(input.value));
-    return input;
-  }
-
-  function numInput(value, onChange) {
-    const input = document.createElement("input");
-    input.type = "number";
-    input.min = "0";
-    input.className = "col-num";
-    input.value = value;
-    input.addEventListener("input", () => {
-      onChange(Math.max(0, parseInt(input.value, 10) || 0));
-    });
-    return input;
-  }
-
-  /* ---------- Recompute totals/badges without rebuilding inputs ---------- */
-
-  function refreshComputed() {
-    let gp = 0, ga = 0;
-    for (const loc of locations) {
-      const t = shiftTotals(loc);
-      const net = netTransfer(loc.id);
-      const actual = t.actual + net;
-      gp += t.planned; ga += actual;
-
-      for (const s of loc.shifts) {
-        const el = refs.shifts[s.id];
-        if (el) setDiff(el, s.planned, s.actual);
-      }
-
-      const r = refs.locs[loc.id];
-      if (r) {
-        r.planned.textContent = t.planned;
-        r.actual.textContent = actual;
-        setDiff(r.diff, t.planned, actual);
-        r.count.textContent = loc.shifts.length + (loc.shifts.length === 1 ? " shift" : " shifts");
-        if (net > 0) {
-          r.loan.style.display = "";
-          r.loan.className = "loan in";
-          r.loan.textContent = "+" + net + " borrowed";
-        } else if (net < 0) {
-          r.loan.style.display = "";
-          r.loan.className = "loan out";
-          r.loan.textContent = net + " loaned";
-        } else {
-          r.loan.style.display = "none";
-          r.loan.textContent = "";
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #16181c;
+          --card: #1f2227;
+          --border: #2c3036;
+          --text: #e8eaed;
+          --muted: #9aa0a6;
+          --accent: #3b82f6;
+          --ok: #22c55e;
+          --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
         }
       }
-    }
-    renderSummary(gp, ga);
-  }
+      :root[data-theme="dark"] {
+        --bg: #16181c;
+        --card: #1f2227;
+        --border: #2c3036;
+        --text: #e8eaed;
+        --muted: #9aa0a6;
+        --accent: #3b82f6;
+        --ok: #22c55e;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 32px 20px 80px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .theme-btn {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text);
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        font-size: 16px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+      }
+      .theme-btn:hover {
+        border-color: var(--accent);
+      }
+      h1 {
+        font-size: 22px;
+        font-weight: 650;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      .summary {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .summary b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      section {
+        margin-top: 28px;
+      }
+      .section-title {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin: 0 0 12px 2px;
+      }
+      .tr-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .tr-chevron {
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .tr-count {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 500;
+      }
+      /* Add / toolbar */
+      .add-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .add-row input[type="text"] {
+        flex: 1;
+      }
+      input[type="text"],
+      input[type="number"],
+      input[type="time"],
+      select {
+        font: inherit;
+        color: var(--text);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 9px 11px;
+        outline: none;
+        transition: border-color 0.12s;
+      }
+      input:focus,
+      select:focus {
+        border-color: var(--accent);
+      }
+      input[type="number"] {
+        width: 62px;
+        text-align: center;
+        -moz-appearance: textfield;
+      }
+      input[type="number"]::-webkit-outer-spin-button,
+      input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        border: none;
+        border-radius: 8px;
+        transition:
+          background 0.12s,
+          opacity 0.12s,
+          border-color 0.12s,
+          color 0.12s;
+      }
+      .btn-add {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 550;
+        padding: 9px 18px;
+        white-space: nowrap;
+      }
+      .btn-add:hover {
+        opacity: 0.9;
+      }
+      .btn-move {
+        background: var(--card);
+        color: var(--text);
+        font-weight: 550;
+        padding: 9px 16px;
+        border: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .btn-move:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .btn-move.active {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      /* Move form */
+      .move-form {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 16px;
+        box-shadow: var(--shadow);
+      }
+      .move-form select {
+        background: var(--bg);
+      }
+      .move-form .arrow {
+        color: var(--muted);
+        font-size: 16px;
+      }
+      .move-form .mini {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .move-form .grow {
+        flex: 1;
+        min-width: 8px;
+      }
+      .btn-confirm {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 550;
+        padding: 9px 16px;
+      }
+      .btn-confirm:hover {
+        opacity: 0.9;
+      }
+      .btn-cancel {
+        background: transparent;
+        color: var(--muted);
+        padding: 9px 12px;
+      }
+      .btn-cancel:hover {
+        color: var(--text);
+      }
+      .move-hint {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 2px 0;
+      }
+      /* Location cards */
+      .locations {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .loc {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .loc-head {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+      }
+      .exp {
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        flex: none;
+      }
+      .loc-title {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        cursor: pointer;
+      }
+      .loc-title-main {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .loc-name {
+        font-weight: 550;
+        font-size: 15px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .shift-count {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 500;
+        flex: none;
+      }
+      .loan {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        flex: none;
+        white-space: nowrap;
+      }
+      .loan.in {
+        color: var(--ok);
+        background: color-mix(in srgb, var(--ok) 14%, transparent);
+      }
+      .loan.out {
+        color: var(--under);
+        background: color-mix(in srgb, var(--under) 14%, transparent);
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        flex: none;
+      }
+      .field label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .field .val {
+        font-weight: 600;
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+      }
+      .diff {
+        min-width: 54px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        padding: 6px 8px;
+        border-radius: 8px;
+      }
+      .diff.matched {
+        color: var(--text);
+        background: color-mix(in srgb, var(--muted) 16%, transparent);
+      }
+      .diff.under {
+        color: var(--under);
+        background: color-mix(in srgb, var(--under) 12%, transparent);
+      }
+      .diff.over {
+        color: var(--ok);
+        background: color-mix(in srgb, var(--ok) 12%, transparent);
+      }
+      .btn-del {
+        background: transparent;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1;
+        padding: 6px 8px;
+        border-radius: 6px;
+        flex: none;
+      }
+      .btn-del:hover {
+        color: var(--under);
+        background: color-mix(in srgb, var(--under) 12%, transparent);
+      }
+      .btn-edit {
+        background: transparent;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1;
+        padding: 6px 8px;
+        border-radius: 6px;
+        flex: none;
+      }
+      .btn-edit:hover,
+      .btn-edit.active {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+      }
+      /* Shifts panel */
+      .shifts {
+        padding: 4px 16px 16px 50px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-top: 1px solid var(--border);
+        margin-top: 2px;
+      }
+      .shifts-head,
+      .shift {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .shifts-head {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+        padding-top: 10px;
+      }
+      .col-times {
+        width: 200px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .col-times input[type="time"] {
+        flex: 1;
+        min-width: 0;
+        padding: 8px 6px;
+      }
+      .dash {
+        color: var(--muted);
+        flex: none;
+      }
+      .col-num {
+        width: 62px;
+        flex: none;
+        text-align: center;
+      }
+      input[type="number"].col-num {
+        width: 62px;
+      }
+      .col-diff {
+        width: 56px;
+        flex: none;
+        min-width: 0;
+      }
+      .shifts-head .col-diff {
+        text-align: center;
+      }
+      .col-del {
+        width: 34px;
+        flex: none;
+      }
+      .btn-shift {
+        align-self: flex-start;
+        background: transparent;
+        color: var(--accent);
+        font-weight: 550;
+        padding: 7px 12px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        font-size: 13px;
+        margin-top: 2px;
+      }
+      .btn-shift:hover {
+        border-color: var(--accent);
+      }
+      .no-shifts {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 8px 0 2px;
+      }
+      .loc-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .loc-field label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .loc-field input {
+        width: 100%;
+        background: var(--bg);
+      }
+      .loc-manager {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 500;
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .standby-chip {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        flex: none;
+        white-space: nowrap;
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+      }
+      .loc-standby {
+        padding-top: 8px;
+        margin-top: 4px;
+        border-top: 1px solid var(--border);
+      }
+      .loc-standby-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .loc-standby-item {
+        font-size: 13px;
+        color: var(--text);
+      }
+      /* Standby teams section */
+      .teams {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .team {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        box-shadow: var(--shadow);
+      }
+      .team .mini {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .team .arrow {
+        color: var(--muted);
+      }
+      .team select {
+        flex: 1;
+        min-width: 0;
+        background: var(--bg);
+      }
+      .teams-empty {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 2px 0 4px;
+      }
+      .btn-team {
+        align-self: flex-start;
+        background: transparent;
+        color: var(--accent);
+        font-weight: 550;
+        padding: 8px 12px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        font-size: 13px;
+      }
+      .btn-team:hover {
+        border-color: var(--accent);
+      }
+      .empty {
+        text-align: center;
+        color: var(--muted);
+        font-size: 14px;
+        padding: 28px 0;
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+      }
+      /* Transfers list */
+      .transfers {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .transfer {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        box-shadow: var(--shadow);
+      }
+      .transfer .route {
+        flex: 1;
+        font-size: 14px;
+        min-width: 0;
+      }
+      .transfer .route b {
+        font-weight: 600;
+      }
+      .transfer .route .via {
+        color: var(--muted);
+        margin: 0 6px;
+      }
+      .transfer .cnt {
+        font-size: 13px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .transfer .cnt b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      /* Notes */
+      textarea {
+        width: 100%;
+        min-height: 160px;
+        font: inherit;
+        color: var(--text);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        outline: none;
+        resize: vertical;
+        box-shadow: var(--shadow);
+        transition: border-color 0.12s;
+      }
+      textarea:focus {
+        border-color: var(--accent);
+      }
+      /* Modal */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 100;
+        animation: modal-fade 0.12s ease-out;
+      }
+      .modal {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: 0 12px 44px rgba(0, 0, 0, 0.3);
+        max-width: 380px;
+        width: 100%;
+        padding: 22px 22px 18px;
+        animation: modal-pop 0.13s ease-out;
+      }
+      .modal h2 {
+        font-size: 17px;
+        font-weight: 650;
+        margin: 0 0 8px;
+      }
+      .modal p {
+        font-size: 14px;
+        color: var(--muted);
+        margin: 0 0 20px;
+        line-height: 1.5;
+      }
+      .modal-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        margin: 4px 0 22px;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 9px 16px;
+        font-weight: 500;
+      }
+      .btn-ghost:hover {
+        border-color: var(--muted);
+      }
+      .btn-danger {
+        background: var(--under);
+        color: #fff;
+        font-weight: 550;
+        padding: 9px 16px;
+      }
+      .btn-danger:hover {
+        opacity: 0.9;
+      }
+      @keyframes modal-fade {
+        from {
+          opacity: 0;
+        }
+      }
+      @keyframes modal-pop {
+        from {
+          opacity: 0;
+          transform: translateY(6px) scale(0.98);
+        }
+      }
+      @media (max-width: 560px) {
+        .loc-head {
+          flex-wrap: wrap;
+        }
+        .loc-title {
+          flex-basis: 100%;
+          order: -1;
+        }
+        .shifts {
+          padding-left: 16px;
+        }
+        .shifts-head {
+          display: none;
+        }
+        .shift {
+          flex-wrap: wrap;
+        }
+        .col-times {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Field Manager</h1>
+        <div class="header-right">
+          <div class="summary" id="summary"></div>
+          <button
+            class="theme-btn"
+            id="theme-btn"
+            aria-label="Toggle color theme"
+          >
+            ☀
+          </button>
+        </div>
+      </header>
 
-  function renderSummary(planned, actual) {
-    if (locations.length === 0) { $summary.textContent = ""; return; }
-    const d = actual - planned;
-    const sign = d > 0 ? "+" + d : String(d);
-    $summary.innerHTML =
-      "<b>" + actual + "</b>/" + planned + " staffed &middot; " +
-      locations.length + " location" + (locations.length === 1 ? "" : "s") +
-      " &middot; net <b>" + sign + "</b>";
-  }
+      <section>
+        <p class="section-title">Locations</p>
+        <div class="add-row">
+          <input
+            type="text"
+            id="new-name"
+            placeholder="Add a location (e.g. Drinks 1, Speciaalbierbar)"
+            autocomplete="off"
+          />
+          <button class="btn-add" id="add-btn">Add</button>
+          <button class="btn-move" id="move-btn">Move</button>
+        </div>
+        <div id="move-panel"></div>
+        <div class="locations" id="locations"></div>
+      </section>
 
-  /* ---------- Move / transfers ---------- */
+      <section id="transfers-section" style="display: none">
+        <p class="section-title tr-toggle" id="transfers-toggle">
+          <span class="tr-chevron" id="transfers-chevron">▾</span>
+          Transfers <span class="tr-count" id="transfers-count"></span>
+        </p>
+        <div class="transfers" id="transfers"></div>
+      </section>
 
-  $moveBtn.addEventListener("click", () => {
-    moveOpen = !moveOpen;
-    $moveBtn.classList.toggle("active", moveOpen);
-    renderMovePanel();
-  });
+      <section>
+        <p class="section-title">Standby teams</p>
+        <div class="teams" id="teams"></div>
+      </section>
 
-  function renderMovePanel() {
-    $movePanel.innerHTML = "";
-    if (!moveOpen) return;
+      <section>
+        <p class="section-title">Notes</p>
+        <textarea id="notes" placeholder="Notes for yourself…"></textarea>
+      </section>
+    </div>
 
-    if (locations.length < 2) {
-      const hint = document.createElement("div");
-      hint.className = "move-form";
-      const t = document.createElement("span");
-      t.className = "move-hint";
-      t.textContent = "Add at least two locations to move people between them.";
-      hint.appendChild(t);
-      $movePanel.appendChild(hint);
-      return;
-    }
+    <script>
+      (function () {
+        "use strict";
+        const LS_LOC = "fieldmanager.locations.v1";
+        const LS_TRANSFERS = "fieldmanager.transfers.v1";
+        const LS_TR_OPEN = "fieldmanager.transfersOpen.v1";
+        const LS_TEAMS = "fieldmanager.teams.v1";
+        const LS_THEME = "fieldmanager.theme.v1";
+        const LS_NOTES = "fieldmanager.notes.v1";
 
-    const form = document.createElement("div");
-    form.className = "move-form";
+        let locations = load(LS_LOC, []);
+        let transfers = load(LS_TRANSFERS, []);
+        let teams = load(LS_TEAMS, []);
+        let nextId = 1; // next location id
+        let sid = 1; // next shift id
+        let tid = 1; // next transfer id
+        let teamId = 1; // next standby team id
+        let moveOpen = false;
+        let transfersExpanded = localStorage.getItem(LS_TR_OPEN) !== "0";
 
-    const fromLabel = document.createElement("span");
-    fromLabel.className = "mini";
-    fromLabel.textContent = "Move";
+        migrate();
 
-    const count = document.createElement("input");
-    count.type = "number";
-    count.min = "1";
-    count.value = "1";
+        const $locations = document.getElementById("locations");
+        const $summary = document.getElementById("summary");
+        const $newName = document.getElementById("new-name");
+        const $addBtn = document.getElementById("add-btn");
+        const $moveBtn = document.getElementById("move-btn");
+        const $movePanel = document.getElementById("move-panel");
+        const $transfersSection = document.getElementById("transfers-section");
+        const $transfersToggle = document.getElementById("transfers-toggle");
+        const $transfersChevron = document.getElementById("transfers-chevron");
+        const $transfersCount = document.getElementById("transfers-count");
+        const $transfers = document.getElementById("transfers");
+        const $teams = document.getElementById("teams");
+        const $notes = document.getElementById("notes");
+        const $themeBtn = document.getElementById("theme-btn");
 
-    const peopleLabel = document.createElement("span");
-    peopleLabel.className = "mini";
-    peopleLabel.textContent = "from";
+        let refs = { locs: {}, shifts: {} };
 
-    const from = document.createElement("select");
-    const to = document.createElement("select");
-    fillSelect(from, null);
-    from.value = String(locations[0].id);
-    fillSelect(to, locations[0].id);
+        function load(key, fallback) {
+          try {
+            return JSON.parse(localStorage.getItem(key)) ?? fallback;
+          } catch (e) {
+            return fallback;
+          }
+        }
+        function saveLocations() {
+          localStorage.setItem(LS_LOC, JSON.stringify(locations));
+        }
+        function saveTransfers() {
+          localStorage.setItem(LS_TRANSFERS, JSON.stringify(transfers));
+        }
+        function saveTeams() {
+          localStorage.setItem(LS_TEAMS, JSON.stringify(teams));
+        }
 
-    const arrow = document.createElement("span");
-    arrow.className = "arrow";
-    arrow.textContent = "→";
+        // Bring older/loose data into the current shape.
+        function migrate() {
+          if (!Array.isArray(locations)) locations = [];
+          if (!Array.isArray(transfers)) transfers = [];
+          let maxLoc = 0,
+            maxShift = 0,
+            maxTr = 0;
+          for (const loc of locations) {
+            if (typeof loc.id !== "number") loc.id = maxLoc + 1;
+            maxLoc = Math.max(maxLoc, loc.id);
+            if (typeof loc.expanded !== "boolean") loc.expanded = false;
+            if (typeof loc.manager !== "string") loc.manager = "";
+            delete loc.note;
+            if (!Array.isArray(loc.shifts)) {
+              const p = loc.planned || 0,
+                a = loc.actual || 0;
+              loc.shifts =
+                p || a
+                  ? [{ id: 0, start: "", end: "", planned: p, actual: a }]
+                  : [];
+            }
+            delete loc.planned;
+            delete loc.actual;
+            for (const s of loc.shifts)
+              maxShift = Math.max(maxShift, s.id || 0);
+          }
+          for (const t of transfers) maxTr = Math.max(maxTr, t.id || 0);
+          nextId = maxLoc + 1;
+          sid = maxShift + 1;
+          tid = maxTr + 1;
+          for (const loc of locations)
+            for (const s of loc.shifts) if (!s.id) s.id = sid++;
+          // Drop transfers that reference a location that no longer exists.
+          const ids = new Set(locations.map((l) => l.id));
+          transfers = transfers.filter((t) => ids.has(t.from) && ids.has(t.to));
 
-    from.addEventListener("change", () => fillSelect(to, parseInt(from.value, 10)));
+          // Standby teams.
+          if (!Array.isArray(teams)) teams = [];
+          let maxTeam = 0;
+          for (const tm of teams) {
+            if (typeof tm.id !== "number") tm.id = maxTeam + 1;
+            maxTeam = Math.max(maxTeam, tm.id);
+            tm.size = Math.max(0, parseInt(tm.size, 10) || 0);
+            // location is a location id, or null for the standby pool.
+            if (tm.location != null && !ids.has(tm.location))
+              tm.location = null;
+          }
+          teamId = maxTeam + 1;
+        }
 
-    const grow = document.createElement("span");
-    grow.className = "grow";
+        function locById(id) {
+          return locations.find((l) => l.id === id);
+        }
+        function nameOf(id) {
+          const l = locById(id);
+          return l ? l.name : "(removed)";
+        }
 
-    const confirm = document.createElement("button");
-    confirm.className = "btn-confirm";
-    confirm.textContent = "Move";
-    confirm.addEventListener("click", () => {
-      const f = parseInt(from.value, 10);
-      const tt = parseInt(to.value, 10);
-      const c = Math.max(1, parseInt(count.value, 10) || 0);
-      if (!locById(f) || !locById(tt) || f === tt) return;
-      transfers.push({ id: tid++, from: f, to: tt, count: c });
-      saveTransfers();
-      moveOpen = false;
-      $moveBtn.classList.remove("active");
-      render();
-    });
+        function shiftTotals(loc) {
+          return loc.shifts.reduce(
+            (a, s) => ({
+              planned: a.planned + s.planned,
+              actual: a.actual + s.actual,
+            }),
+            { planned: 0, actual: 0 },
+          );
+        }
 
-    const cancel = document.createElement("button");
-    cancel.className = "btn-cancel";
-    cancel.textContent = "Cancel";
-    cancel.addEventListener("click", () => {
-      moveOpen = false;
-      $moveBtn.classList.remove("active");
-      renderMovePanel();
-    });
+        // Standby team members assigned to a given location.
+        function standbyForLocation(locId) {
+          return teams.reduce(
+            (n, tm) => n + (tm.location === locId ? tm.size : 0),
+            0,
+          );
+        }
+        // Unassigned reserve (teams sitting on 'Standby').
+        function reservePool() {
+          return teams.reduce(
+            (n, tm) => n + (tm.location == null ? tm.size : 0),
+            0,
+          );
+        }
 
-    form.appendChild(fromLabel);
-    form.appendChild(count);
-    form.appendChild(peopleLabel);
-    form.appendChild(from);
-    form.appendChild(arrow);
-    form.appendChild(to);
-    form.appendChild(grow);
-    form.appendChild(confirm);
-    form.appendChild(cancel);
-    $movePanel.appendChild(form);
-  }
+        // People borrowed in (positive) minus people loaned out (negative).
+        function netTransfer(locId) {
+          let n = 0;
+          for (const t of transfers) {
+            if (t.to === locId) n += t.count;
+            if (t.from === locId) n -= t.count;
+          }
+          return n;
+        }
 
-  function fillSelect(sel, excludeId) {
-    const prev = sel.value;
-    sel.innerHTML = "";
-    for (const loc of locations) {
-      if (loc.id === excludeId) continue;
-      const o = document.createElement("option");
-      o.value = String(loc.id);
-      o.textContent = loc.name;
-      sel.appendChild(o);
-    }
-    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
-  }
+        function diffInfo(planned, actual) {
+          const d = actual - planned;
+          if (d < 0) return { cls: "under", label: String(d) };
+          if (d > 0) return { cls: "over", label: "+" + d };
+          return { cls: "matched", label: "0" };
+        }
 
-  $transfersToggle.addEventListener("click", () => {
-    transfersExpanded = !transfersExpanded;
-    localStorage.setItem(LS_TR_OPEN, transfersExpanded ? "1" : "0");
-    renderTransfers();
-  });
+        function setDiff(el, planned, actual) {
+          const info = diffInfo(planned, actual);
+          const isCol = el.classList.contains("col-diff");
+          el.className = "diff " + info.cls + (isCol ? " col-diff" : "");
+          el.textContent = info.label;
+        }
 
-  function renderTransfers() {
-    if (transfers.length === 0) {
-      $transfersSection.style.display = "none";
-      $transfers.innerHTML = "";
-      return;
-    }
-    $transfersSection.style.display = "";
-    $transfersChevron.textContent = transfersExpanded ? "▾" : "▸";
-    $transfersCount.textContent =
-      "(" + transfers.length + ")";
-    $transfers.style.display = transfersExpanded ? "" : "none";
-    $transfers.innerHTML = "";
-    if (!transfersExpanded) return;
-    for (const t of transfers) {
-      const row = document.createElement("div");
-      row.className = "transfer";
+        /* ---------- Confirmation modal ---------- */
 
-      const route = document.createElement("div");
-      route.className = "route";
-      const f = document.createElement("b");
-      f.textContent = nameOf(t.from);
-      const via = document.createElement("span");
-      via.className = "via";
-      via.textContent = "→";
-      const to = document.createElement("b");
-      to.textContent = nameOf(t.to);
-      route.appendChild(f);
-      route.appendChild(via);
-      route.appendChild(to);
+        function confirmModal({ title, message, confirmLabel = "Delete" }) {
+          return new Promise((resolve) => {
+            const prevFocus = document.activeElement;
+            const overlay = document.createElement("div");
+            overlay.className = "modal-overlay";
 
-      const cnt = document.createElement("span");
-      cnt.className = "cnt";
-      cnt.innerHTML = "<b>" + t.count + "</b> " + (t.count === 1 ? "person" : "people");
+            const modal = document.createElement("div");
+            modal.className = "modal";
+            modal.setAttribute("role", "dialog");
+            modal.setAttribute("aria-modal", "true");
 
-      const del = document.createElement("button");
-      del.className = "btn-del";
-      del.innerHTML = "&times;";
-      del.title = "Undo transfer";
-      del.addEventListener("click", () => {
-        transfers = transfers.filter(x => x.id !== t.id);
-        saveTransfers();
+            const h = document.createElement("h2");
+            h.textContent = title;
+            const p = document.createElement("p");
+            p.textContent = message;
+
+            const actions = document.createElement("div");
+            actions.className = "modal-actions";
+            const cancel = document.createElement("button");
+            cancel.className = "btn-ghost";
+            cancel.textContent = "Cancel";
+            const confirm = document.createElement("button");
+            confirm.className = "btn-danger";
+            confirm.textContent = confirmLabel;
+            actions.appendChild(cancel);
+            actions.appendChild(confirm);
+
+            modal.appendChild(h);
+            modal.appendChild(p);
+            modal.appendChild(actions);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            cancel.focus();
+
+            function close(result) {
+              document.removeEventListener("keydown", onKey);
+              overlay.remove();
+              if (prevFocus && prevFocus.focus) prevFocus.focus();
+              resolve(result);
+            }
+            function onKey(e) {
+              if (e.key === "Escape") close(false);
+              else if (e.key === "Enter") close(true);
+            }
+            cancel.addEventListener("click", () => close(false));
+            confirm.addEventListener("click", () => close(true));
+            overlay.addEventListener("click", (e) => {
+              if (e.target === overlay) close(false);
+            });
+            document.addEventListener("keydown", onKey);
+          });
+        }
+
+        /* ---------- Render locations ---------- */
+
+        function render() {
+          $locations.innerHTML = "";
+          refs = { locs: {}, shifts: {} };
+
+          if (locations.length === 0) {
+            const e = document.createElement("div");
+            e.className = "empty";
+            e.textContent = "No locations yet. Add one above to get started.";
+            $locations.appendChild(e);
+          } else {
+            for (const loc of locations) $locations.appendChild(renderLoc(loc));
+          }
+
+          refreshComputed();
+          renderTransfers();
+          renderTeams();
+          if (moveOpen) renderMovePanel();
+        }
+
+        function renderLoc(loc) {
+          const card = document.createElement("div");
+          card.className = "loc";
+
+          const head = document.createElement("div");
+          head.className = "loc-head";
+
+          const exp = document.createElement("button");
+          exp.className = "exp";
+          exp.textContent = loc.expanded ? "▾" : "▸";
+          exp.title = loc.expanded ? "Collapse" : "Expand";
+
+          const title = document.createElement("div");
+          title.className = "loc-title";
+          const titleMain = document.createElement("div");
+          titleMain.className = "loc-title-main";
+          const name = document.createElement("span");
+          name.className = "loc-name";
+          name.textContent = loc.name;
+          name.title = loc.name;
+          const manager = document.createElement("span");
+          manager.className = "loc-manager";
+          if (loc.manager.trim()) {
+            manager.textContent = loc.manager;
+            manager.title = "Bar manager: " + loc.manager;
+          } else {
+            manager.style.display = "none";
+          }
+          const count = document.createElement("span");
+          count.className = "shift-count";
+          const loan = document.createElement("span");
+          loan.className = "loan";
+          loan.style.display = "none";
+          const standbyChip = document.createElement("span");
+          standbyChip.className = "standby-chip";
+          standbyChip.style.display = "none";
+          titleMain.appendChild(name);
+          titleMain.appendChild(manager);
+          titleMain.appendChild(count);
+          titleMain.appendChild(loan);
+          titleMain.appendChild(standbyChip);
+          title.appendChild(titleMain);
+
+          const toggle = () => {
+            loc.expanded = !loc.expanded;
+            saveLocations();
+            render();
+          };
+          exp.addEventListener("click", toggle);
+          title.addEventListener("click", toggle);
+
+          const plannedField = statField("Planned");
+          const actualField = statField("Actual");
+
+          const diffWrap = document.createElement("div");
+          diffWrap.className = "field";
+          const diffLabel = document.createElement("label");
+          diffLabel.textContent = "Diff";
+          const diffVal = document.createElement("div");
+          diffVal.className = "diff";
+          diffWrap.appendChild(diffLabel);
+          diffWrap.appendChild(diffVal);
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "btn-edit";
+          editBtn.innerHTML = "&#9998;";
+          editBtn.title = "Edit name & manager";
+          editBtn.setAttribute("aria-label", "Edit " + loc.name);
+          editBtn.addEventListener("click", () => editLocationModal(loc));
+
+          const del = document.createElement("button");
+          del.className = "btn-del";
+          del.innerHTML = "&times;";
+          del.title = "Remove location";
+          del.setAttribute("aria-label", "Remove " + loc.name);
+          del.addEventListener("click", async () => {
+            const n = loc.shifts.length;
+            const shiftsNote = n
+              ? " and its " + n + (n === 1 ? " shift" : " shifts")
+              : "";
+            const ok = await confirmModal({
+              title: "Delete location?",
+              message:
+                "“" +
+                (loc.name.trim() || "This location") +
+                "”" +
+                shiftsNote +
+                " will be permanently removed.",
+            });
+            if (!ok) return;
+            locations = locations.filter((l) => l.id !== loc.id);
+            transfers = transfers.filter(
+              (t) => t.from !== loc.id && t.to !== loc.id,
+            );
+            // Any standby teams here fall back to the reserve pool.
+            for (const tm of teams)
+              if (tm.location === loc.id) tm.location = null;
+            saveLocations();
+            saveTransfers();
+            saveTeams();
+            render();
+          });
+
+          head.appendChild(exp);
+          head.appendChild(title);
+          head.appendChild(plannedField.wrap);
+          head.appendChild(actualField.wrap);
+          head.appendChild(diffWrap);
+          head.appendChild(editBtn);
+          head.appendChild(del);
+          card.appendChild(head);
+
+          refs.locs[loc.id] = {
+            planned: plannedField.val,
+            actual: actualField.val,
+            diff: diffVal,
+            count: count,
+            loan: loan,
+            standbyChip: standbyChip,
+            name: name,
+            manager: manager,
+          };
+
+          if (loc.expanded) card.appendChild(renderShifts(loc));
+          return card;
+        }
+
+        function statField(labelText) {
+          const wrap = document.createElement("div");
+          wrap.className = "field";
+          const label = document.createElement("label");
+          label.textContent = labelText;
+          const val = document.createElement("span");
+          val.className = "val";
+          val.textContent = "0";
+          wrap.appendChild(label);
+          wrap.appendChild(val);
+          return { wrap, val };
+        }
+
+        function modalField(labelText, value, placeholder) {
+          const field = document.createElement("div");
+          field.className = "loc-field";
+          const label = document.createElement("label");
+          label.textContent = labelText;
+          const input = document.createElement("input");
+          input.type = "text";
+          input.value = value || "";
+          input.placeholder = placeholder;
+          field.appendChild(label);
+          field.appendChild(input);
+          return { field, input };
+        }
+
+        function editLocationModal(loc) {
+          const prevFocus = document.activeElement;
+          const overlay = document.createElement("div");
+          overlay.className = "modal-overlay";
+          const modal = document.createElement("div");
+          modal.className = "modal";
+          modal.setAttribute("role", "dialog");
+          modal.setAttribute("aria-modal", "true");
+
+          const h = document.createElement("h2");
+          h.textContent = "Edit location";
+
+          const fields = document.createElement("div");
+          fields.className = "modal-fields";
+          const nameField = modalField(
+            "Location name",
+            loc.name,
+            "Location name",
+          );
+          const managerField = modalField(
+            "Bar manager",
+            loc.manager,
+            "e.g. Vince",
+          );
+          fields.appendChild(nameField.field);
+          fields.appendChild(managerField.field);
+
+          const actions = document.createElement("div");
+          actions.className = "modal-actions";
+          const cancel = document.createElement("button");
+          cancel.className = "btn-ghost";
+          cancel.textContent = "Cancel";
+          const save = document.createElement("button");
+          save.className = "btn-confirm";
+          save.textContent = "Save";
+          actions.appendChild(cancel);
+          actions.appendChild(save);
+
+          modal.appendChild(h);
+          modal.appendChild(fields);
+          modal.appendChild(actions);
+          overlay.appendChild(modal);
+          document.body.appendChild(overlay);
+          nameField.input.focus();
+          nameField.input.select();
+
+          function close() {
+            document.removeEventListener("keydown", onKey);
+            overlay.remove();
+            if (prevFocus && prevFocus.focus) prevFocus.focus();
+          }
+          function commit() {
+            loc.name = nameField.input.value;
+            loc.manager = managerField.input.value;
+            saveLocations();
+            close();
+            render();
+          }
+          function onKey(e) {
+            if (e.key === "Escape") close();
+            else if (e.key === "Enter") commit();
+          }
+          cancel.addEventListener("click", close);
+          save.addEventListener("click", commit);
+          overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) close();
+          });
+          document.addEventListener("keydown", onKey);
+        }
+
+        function renderShifts(loc) {
+          const panel = document.createElement("div");
+          panel.className = "shifts";
+
+          if (loc.shifts.length > 0) {
+            const headRow = document.createElement("div");
+            headRow.className = "shifts-head";
+            headRow.innerHTML =
+              '<span class="col-times">Shift</span>' +
+              '<span class="col-num">Planned</span>' +
+              '<span class="col-num">Actual</span>' +
+              '<span class="col-diff">Diff</span>' +
+              '<span class="col-del"></span>';
+            panel.appendChild(headRow);
+            for (const s of loc.shifts) panel.appendChild(renderShift(loc, s));
+          } else {
+            const none = document.createElement("div");
+            none.className = "no-shifts";
+            none.textContent = "No shifts yet.";
+            panel.appendChild(none);
+          }
+
+          const add = document.createElement("button");
+          add.className = "btn-shift";
+          add.textContent = "+ Add shift";
+          add.addEventListener("click", () => {
+            loc.shifts.push({
+              id: sid++,
+              start: "",
+              end: "",
+              planned: 0,
+              actual: 0,
+            });
+            saveLocations();
+            render();
+          });
+          panel.appendChild(add);
+
+          const standbyBlock = document.createElement("div");
+          standbyBlock.className = "loc-standby";
+          standbyBlock.style.display = "none";
+          const sbLabel = document.createElement("div");
+          sbLabel.className = "loc-standby-label";
+          sbLabel.textContent = "Standby teams";
+          const sbList = document.createElement("div");
+          sbList.className = "loc-standby-list";
+          standbyBlock.appendChild(sbLabel);
+          standbyBlock.appendChild(sbList);
+          panel.appendChild(standbyBlock);
+          const r = refs.locs[loc.id];
+          if (r) {
+            r.standbyBlock = standbyBlock;
+            r.standbyList = sbList;
+          }
+
+          return panel;
+        }
+
+        function renderShift(loc, s) {
+          const row = document.createElement("div");
+          row.className = "shift";
+
+          const times = document.createElement("div");
+          times.className = "col-times";
+          const start = timeInput(s.start, (v) => {
+            s.start = v;
+            saveLocations();
+          });
+          const dash = document.createElement("span");
+          dash.className = "dash";
+          dash.textContent = "–";
+          const end = timeInput(s.end, (v) => {
+            s.end = v;
+            saveLocations();
+          });
+          times.appendChild(start);
+          times.appendChild(dash);
+          times.appendChild(end);
+
+          const planned = numInput(s.planned, (v) => {
+            s.planned = v;
+            saveLocations();
+            refreshComputed();
+          });
+          const actual = numInput(s.actual, (v) => {
+            s.actual = v;
+            saveLocations();
+            refreshComputed();
+          });
+
+          const diff = document.createElement("div");
+          diff.className = "diff col-diff";
+
+          const del = document.createElement("button");
+          del.className = "btn-del col-del";
+          del.innerHTML = "&times;";
+          del.title = "Remove shift";
+          del.addEventListener("click", async () => {
+            const range = s.start && s.end ? s.start + "–" + s.end + " " : "";
+            const ok = await confirmModal({
+              title: "Delete shift?",
+              message: "The " + range + "shift will be removed.",
+            });
+            if (!ok) return;
+            loc.shifts = loc.shifts.filter((x) => x.id !== s.id);
+            saveLocations();
+            render();
+          });
+
+          row.appendChild(times);
+          row.appendChild(planned);
+          row.appendChild(actual);
+          row.appendChild(diff);
+          row.appendChild(del);
+
+          refs.shifts[s.id] = diff;
+          return row;
+        }
+
+        function timeInput(value, onChange) {
+          const input = document.createElement("input");
+          input.type = "time";
+          input.value = value || "";
+          input.addEventListener("change", () => onChange(input.value));
+          return input;
+        }
+
+        function numInput(value, onChange) {
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = "0";
+          input.className = "col-num";
+          input.value = value;
+          input.addEventListener("input", () => {
+            onChange(Math.max(0, parseInt(input.value, 10) || 0));
+          });
+          return input;
+        }
+
+        /* ---------- Recompute totals/badges without rebuilding inputs ---------- */
+
+        function refreshComputed() {
+          let gp = 0,
+            ga = 0;
+          for (const loc of locations) {
+            const t = shiftTotals(loc);
+            const net = netTransfer(loc.id);
+            const standby = standbyForLocation(loc.id);
+            const actual = t.actual + net + standby;
+            gp += t.planned;
+            ga += actual;
+
+            for (const s of loc.shifts) {
+              const el = refs.shifts[s.id];
+              if (el) setDiff(el, s.planned, s.actual);
+            }
+
+            const r = refs.locs[loc.id];
+            if (r) {
+              r.planned.textContent = t.planned;
+              r.actual.textContent = actual;
+              setDiff(r.diff, t.planned, actual);
+              r.count.textContent =
+                loc.shifts.length +
+                (loc.shifts.length === 1 ? " shift" : " shifts");
+              if (net > 0) {
+                r.loan.style.display = "";
+                r.loan.className = "loan in";
+                r.loan.textContent = "+" + net + " borrowed";
+              } else if (net < 0) {
+                r.loan.style.display = "";
+                r.loan.className = "loan out";
+                r.loan.textContent = net + " loaned";
+              } else {
+                r.loan.style.display = "none";
+                r.loan.textContent = "";
+              }
+              if (standby > 0) {
+                r.standbyChip.style.display = "";
+                r.standbyChip.textContent = "+" + standby + " standby";
+              } else {
+                r.standbyChip.style.display = "none";
+                r.standbyChip.textContent = "";
+              }
+              if (r.standbyList) refreshStandbyList(loc, r);
+            }
+          }
+          renderSummary(gp, ga, reservePool());
+        }
+
+        function refreshStandbyList(loc, r) {
+          const assigned = teams.filter((tm) => tm.location === loc.id);
+          r.standbyList.innerHTML = "";
+          if (assigned.length === 0) {
+            r.standbyBlock.style.display = "none";
+            return;
+          }
+          r.standbyBlock.style.display = "";
+          for (const tm of assigned) {
+            const item = document.createElement("div");
+            item.className = "loc-standby-item";
+            item.textContent =
+              tm.size +
+              (tm.size === 1 ? " employee" : " employees") +
+              " (standby team)";
+            r.standbyList.appendChild(item);
+          }
+        }
+
+        function renderSummary(planned, actual, reserve) {
+          if (locations.length === 0 && !reserve) {
+            $summary.textContent = "";
+            return;
+          }
+          const d = actual - planned;
+          const sign = d > 0 ? "+" + d : String(d);
+          let html =
+            "<b>" +
+            actual +
+            "</b>/" +
+            planned +
+            " staffed &middot; " +
+            locations.length +
+            " location" +
+            (locations.length === 1 ? "" : "s") +
+            " &middot; net <b>" +
+            sign +
+            "</b>";
+          if (reserve > 0)
+            html += " &middot; <b>" + reserve + "</b> on standby";
+          $summary.innerHTML = html;
+        }
+
+        /* ---------- Move / transfers ---------- */
+
+        $moveBtn.addEventListener("click", () => {
+          moveOpen = !moveOpen;
+          $moveBtn.classList.toggle("active", moveOpen);
+          renderMovePanel();
+        });
+
+        function renderMovePanel() {
+          $movePanel.innerHTML = "";
+          if (!moveOpen) return;
+
+          if (locations.length < 2) {
+            const hint = document.createElement("div");
+            hint.className = "move-form";
+            const t = document.createElement("span");
+            t.className = "move-hint";
+            t.textContent =
+              "Add at least two locations to move people between them.";
+            hint.appendChild(t);
+            $movePanel.appendChild(hint);
+            return;
+          }
+
+          const form = document.createElement("div");
+          form.className = "move-form";
+
+          const fromLabel = document.createElement("span");
+          fromLabel.className = "mini";
+          fromLabel.textContent = "Move";
+
+          const count = document.createElement("input");
+          count.type = "number";
+          count.min = "1";
+          count.value = "1";
+
+          const peopleLabel = document.createElement("span");
+          peopleLabel.className = "mini";
+          peopleLabel.textContent = "from";
+
+          const from = document.createElement("select");
+          const to = document.createElement("select");
+          fillSelect(from, null);
+          from.value = String(locations[0].id);
+          fillSelect(to, locations[0].id);
+
+          const arrow = document.createElement("span");
+          arrow.className = "arrow";
+          arrow.textContent = "→";
+
+          from.addEventListener("change", () =>
+            fillSelect(to, parseInt(from.value, 10)),
+          );
+
+          const grow = document.createElement("span");
+          grow.className = "grow";
+
+          const confirm = document.createElement("button");
+          confirm.className = "btn-confirm";
+          confirm.textContent = "Move";
+          confirm.addEventListener("click", () => {
+            const f = parseInt(from.value, 10);
+            const tt = parseInt(to.value, 10);
+            const c = Math.max(1, parseInt(count.value, 10) || 0);
+            if (!locById(f) || !locById(tt) || f === tt) return;
+            transfers.push({ id: tid++, from: f, to: tt, count: c });
+            saveTransfers();
+            moveOpen = false;
+            $moveBtn.classList.remove("active");
+            render();
+          });
+
+          const cancel = document.createElement("button");
+          cancel.className = "btn-cancel";
+          cancel.textContent = "Cancel";
+          cancel.addEventListener("click", () => {
+            moveOpen = false;
+            $moveBtn.classList.remove("active");
+            renderMovePanel();
+          });
+
+          form.appendChild(fromLabel);
+          form.appendChild(count);
+          form.appendChild(peopleLabel);
+          form.appendChild(from);
+          form.appendChild(arrow);
+          form.appendChild(to);
+          form.appendChild(grow);
+          form.appendChild(confirm);
+          form.appendChild(cancel);
+          $movePanel.appendChild(form);
+        }
+
+        function fillSelect(sel, excludeId) {
+          const prev = sel.value;
+          sel.innerHTML = "";
+          for (const loc of locations) {
+            if (loc.id === excludeId) continue;
+            const o = document.createElement("option");
+            o.value = String(loc.id);
+            o.textContent = loc.name;
+            sel.appendChild(o);
+          }
+          if (prev && [...sel.options].some((o) => o.value === prev))
+            sel.value = prev;
+        }
+
+        $transfersToggle.addEventListener("click", () => {
+          transfersExpanded = !transfersExpanded;
+          localStorage.setItem(LS_TR_OPEN, transfersExpanded ? "1" : "0");
+          renderTransfers();
+        });
+
+        function renderTransfers() {
+          if (transfers.length === 0) {
+            $transfersSection.style.display = "none";
+            $transfers.innerHTML = "";
+            return;
+          }
+          $transfersSection.style.display = "";
+          $transfersChevron.textContent = transfersExpanded ? "▾" : "▸";
+          $transfersCount.textContent = "(" + transfers.length + ")";
+          $transfers.style.display = transfersExpanded ? "" : "none";
+          $transfers.innerHTML = "";
+          if (!transfersExpanded) return;
+          for (const t of transfers) {
+            const row = document.createElement("div");
+            row.className = "transfer";
+
+            const route = document.createElement("div");
+            route.className = "route";
+            const f = document.createElement("b");
+            f.textContent = nameOf(t.from);
+            const via = document.createElement("span");
+            via.className = "via";
+            via.textContent = "→";
+            const to = document.createElement("b");
+            to.textContent = nameOf(t.to);
+            route.appendChild(f);
+            route.appendChild(via);
+            route.appendChild(to);
+
+            const cnt = document.createElement("span");
+            cnt.className = "cnt";
+            cnt.innerHTML =
+              "<b>" + t.count + "</b> " + (t.count === 1 ? "person" : "people");
+
+            const del = document.createElement("button");
+            del.className = "btn-del";
+            del.innerHTML = "&times;";
+            del.title = "Undo transfer";
+            del.addEventListener("click", () => {
+              transfers = transfers.filter((x) => x.id !== t.id);
+              saveTransfers();
+              render();
+            });
+
+            row.appendChild(route);
+            row.appendChild(cnt);
+            row.appendChild(del);
+            $transfers.appendChild(row);
+          }
+        }
+
+        /* ---------- Standby teams ---------- */
+
+        function renderTeams() {
+          $teams.innerHTML = "";
+
+          if (teams.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "teams-empty";
+            empty.textContent =
+              "No standby teams yet. Add one to keep a group in reserve.";
+            $teams.appendChild(empty);
+          } else {
+            for (const tm of teams) $teams.appendChild(renderTeamRow(tm));
+          }
+
+          const add = document.createElement("button");
+          add.className = "btn-team";
+          add.textContent = "+ Add team";
+          add.addEventListener("click", () => {
+            teams.push({ id: teamId++, size: 1, location: null });
+            saveTeams();
+            render();
+          });
+          $teams.appendChild(add);
+        }
+
+        function renderTeamRow(tm) {
+          const row = document.createElement("div");
+          row.className = "team";
+
+          const size = document.createElement("input");
+          size.type = "number";
+          size.min = "0";
+          size.value = tm.size;
+          size.addEventListener("input", () => {
+            tm.size = Math.max(0, parseInt(size.value, 10) || 0);
+            saveTeams();
+            refreshComputed();
+          });
+
+          const label = document.createElement("span");
+          label.className = "mini";
+          label.textContent = "employees";
+
+          const arrow = document.createElement("span");
+          arrow.className = "arrow";
+          arrow.textContent = "→";
+
+          const select = document.createElement("select");
+          for (const loc of locations) {
+            const o = document.createElement("option");
+            o.value = String(loc.id);
+            o.textContent = loc.name;
+            select.appendChild(o);
+          }
+          const standbyOpt = document.createElement("option");
+          standbyOpt.value = "standby";
+          standbyOpt.textContent = "Standby";
+          select.appendChild(standbyOpt);
+          select.value = tm.location == null ? "standby" : String(tm.location);
+          select.addEventListener("change", () => {
+            tm.location =
+              select.value === "standby" ? null : parseInt(select.value, 10);
+            saveTeams();
+            refreshComputed();
+          });
+
+          const del = document.createElement("button");
+          del.className = "btn-del";
+          del.innerHTML = "&times;";
+          del.title = "Remove team";
+          del.addEventListener("click", () => {
+            teams = teams.filter((x) => x.id !== tm.id);
+            saveTeams();
+            render();
+          });
+
+          row.appendChild(size);
+          row.appendChild(label);
+          row.appendChild(arrow);
+          row.appendChild(select);
+          row.appendChild(del);
+          return row;
+        }
+
+        /* ---------- Adding locations ---------- */
+
+        function addLocation() {
+          const nm = $newName.value.trim();
+          if (!nm) return;
+          locations.push({
+            id: nextId++,
+            name: nm,
+            expanded: true,
+            manager: "",
+            shifts: [],
+          });
+          $newName.value = "";
+          saveLocations();
+          render();
+          $newName.focus();
+        }
+
+        $addBtn.addEventListener("click", addLocation);
+        $newName.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") addLocation();
+        });
+
+        /* ---------- Theme ---------- */
+
+        const root = document.documentElement;
+
+        function effectiveTheme() {
+          const attr = root.getAttribute("data-theme");
+          if (attr === "light" || attr === "dark") return attr;
+          return window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+        }
+
+        function updateThemeButton() {
+          const t = effectiveTheme();
+          $themeBtn.textContent = t === "dark" ? "☾" : "☀";
+          $themeBtn.title =
+            t === "dark" ? "Switch to light mode" : "Switch to dark mode";
+        }
+
+        $themeBtn.addEventListener("click", () => {
+          const next = effectiveTheme() === "dark" ? "light" : "dark";
+          root.setAttribute("data-theme", next);
+          localStorage.setItem(LS_THEME, next);
+          updateThemeButton();
+        });
+
+        updateThemeButton();
+
+        /* ---------- Notes ---------- */
+
+        $notes.value = localStorage.getItem(LS_NOTES) || "";
+        let notesTimer = null;
+        $notes.addEventListener("input", () => {
+          clearTimeout(notesTimer);
+          notesTimer = setTimeout(
+            () => localStorage.setItem(LS_NOTES, $notes.value),
+            250,
+          );
+        });
+
         render();
-      });
-
-      row.appendChild(route);
-      row.appendChild(cnt);
-      row.appendChild(del);
-      $transfers.appendChild(row);
-    }
-  }
-
-  /* ---------- Adding locations ---------- */
-
-  function addLocation() {
-    const nm = $newName.value.trim();
-    if (!nm) return;
-    locations.push({ id: nextId++, name: nm, expanded: true, shifts: [] });
-    $newName.value = "";
-    saveLocations();
-    render();
-    $newName.focus();
-  }
-
-  $addBtn.addEventListener("click", addLocation);
-  $newName.addEventListener("keydown", e => { if (e.key === "Enter") addLocation(); });
-
-  /* ---------- Theme ---------- */
-
-  const root = document.documentElement;
-
-  function effectiveTheme() {
-    const attr = root.getAttribute("data-theme");
-    if (attr === "light" || attr === "dark") return attr;
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-
-  function updateThemeButton() {
-    const t = effectiveTheme();
-    $themeBtn.textContent = t === "dark" ? "☾" : "☀";
-    $themeBtn.title = t === "dark" ? "Switch to light mode" : "Switch to dark mode";
-  }
-
-  $themeBtn.addEventListener("click", () => {
-    const next = effectiveTheme() === "dark" ? "light" : "dark";
-    root.setAttribute("data-theme", next);
-    localStorage.setItem(LS_THEME, next);
-    updateThemeButton();
-  });
-
-  updateThemeButton();
-
-  /* ---------- Notes ---------- */
-
-  $notes.value = localStorage.getItem(LS_NOTES) || "";
-  let notesTimer = null;
-  $notes.addEventListener("input", () => {
-    clearTimeout(notesTimer);
-    notesTimer = setTimeout(() => localStorage.setItem(LS_NOTES, $notes.value), 250);
-  });
-
-  render();
-})();
-</script>
-</body>
+      })();
+    </script>
+  </body>
 </html>
